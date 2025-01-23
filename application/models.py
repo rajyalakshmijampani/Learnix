@@ -25,8 +25,8 @@ class RolesUsers(db.Model):
 
 class Lecture(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    lecturenumber = db.Column(db.Integer)
+    lectureNumber = db.Column(db.Float, nullable=False)
     title = db.Column(db.String, nullable=False)
     link = db.Column(db.String, nullable=False)
-    Weeknumber = db.Column(db.Integer)
+    weekNumber = db.Column(db.Integer, nullable=False)
 
