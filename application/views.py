@@ -64,12 +64,6 @@ def user_login():
     else:
         return jsonify({"message":"Incorrect password"}),400
 
-@app.route('/get_distinct_weeknumbers', methods=['GET'])
-def get_distinct_weeknumbers():
-    distinct_weeknumbers = db.session.query(distinct(Lecture.weekNumber)).all()
-    weeknumbers = [week[0] for week in distinct_weeknumbers]
-    return jsonify(weeknumbers)
-
 @app.route('/get_all_lectures', methods=['GET'])
 def get_all_lectures():
     lectures = Lecture.query.all()
@@ -79,6 +73,6 @@ def get_all_lectures():
             'lecturenumber': lecture.lectureNumber,
             'title': lecture.title,
             'link':lecture.link,
-            'Weeknumber': lecture.weekNumber,
+            'weeknumber': lecture.weekNumber,
         })
     return jsonify(lectures_data)
