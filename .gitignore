@@ -1,2 +1,28 @@
+# Virtual environment
 .venv/
+
+# Python bytecode
 __pycache__/
+*.pyc
+*.pyo
+
+# macOS system files
+.DS_Store
+
+# IDE and editor-specific files
+.vscode/
+.idea/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Dependency directories
+node_modules/
+
+# Log files
+*.log
+
+# Environment configuration files
+.env
+*.env
+secrets2.json

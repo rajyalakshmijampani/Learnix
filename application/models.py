@@ -1,7 +1,35 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_security import UserMixin, RoleMixin
+from .database import db
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from functools import wraps
 
-db = SQLAlchemy()
+
+def role_required(role):
+    """
+    Custom decorator to ensure the user is authenticated with JWT and has the required role.
+    """
+    def decorator(fn):
+        @jwt_required()  # This ensures that JWT is required for all routes using this decorator
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            # Get current user's identity from the JWT token
+            current_user_id = get_jwt_identity()
+
+            # Retrieve the user from the database
+            user = User.query.get(current_user_id)
+            if not user:
+                return {"msg": "User not found"}, 404
+
+            # Check if the user has the required role
+            if role not in [r.name for r in user.roles]:
+                return {"msg": "User does not have required role"}, 403
+
+            # Proceed to the original function
+            return fn(*args, **kwargs)
+        
+        return wrapper
+    return decorator
 
 class User(db.Model,UserMixin):
     id=db.Column(db.Integer(),primary_key=True)
