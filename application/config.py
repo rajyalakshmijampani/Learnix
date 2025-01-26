@@ -8,3 +8,4 @@ class Config:
     
     JWT_HEADER_NAME = 'Authentication-Token'
     JWT_SECRET_KEY=secrets["JWT_SECRET_KEY"]
+    JWT_ACCESS_TOKEN_EXPIRES = secrets["JWT_EXPIRATION"]  
