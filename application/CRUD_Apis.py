@@ -10,3 +10,8 @@ class Test(Resource):
     @role_required('admin')
     def post(self):
         return request.json, 200
+    
+class Courses(Resource):
+    def get(self):
+        courses = Course.objects().to_json()
+        return {"res":courses}, 200

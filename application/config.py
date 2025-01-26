@@ -1,3 +1,4 @@
+from datetime import timedelta
 import json
 with open('./secrets.json') as f:
     secrets = json.load(f)
@@ -8,4 +9,4 @@ class Config:
     
     JWT_HEADER_NAME = 'Authentication-Token'
     JWT_SECRET_KEY=secrets["JWT_SECRET_KEY"]
-    JWT_ACCESS_TOKEN_EXPIRES = secrets["JWT_EXPIRATION"]  
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(seconds=int(secrets["JWT_EXPIRATION"]))

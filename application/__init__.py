@@ -7,6 +7,7 @@ from application.Auth_Apis import UserRegistration, UserLogin, ProtectedResource
 from application.models import User, Role
 from werkzeug.security import generate_password_hash
 from application.CRUD_Apis import *
+from application.seed import seed_database
 def create_app():
     app = Flask(__name__)
 
@@ -46,6 +47,7 @@ def create_app():
             # Assign the admin role to the new admin user
             admin_user.roles.append(admin_role)
             db.session.commit()
+    seed_database()
 
     # Add Auth resources to the API
     api.add_resource(UserRegistration, '/register')
@@ -55,5 +57,6 @@ def create_app():
     api.add_resource(RoleList, '/roles')
     # Add CRUD resources to the API
     api.add_resource(Test, '/test')
+    api.add_resource(Courses, '/courses')
 
     return app
