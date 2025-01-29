@@ -28,7 +28,47 @@ export default {
             </div>
         </div>
     </nav>
-    <slot></slot>
+    <div class="row" style="width:100%">
+        <div class="col-2" style="width: 20%; padding-right: 0px;" v-if="role=='user'">
+            <div style="margin-left:5%"> 
+                <h4 style="color: #015668;margin-top: 30px;margin-bottom: 30px;text-align:center">Course Contents</h4>
+                <div class="accordion" id="accordion">
+                    <div class="accordion-item" v-for="weeknumber in weeks" :key="weeknumber">
+                        <h2 class="accordion-header" :id="'heading' + weeknumber">
+                            <button class="accordion-button" type="button" 
+                                    :data-bs-toggle="'collapse'"
+                                    :class="{ 'collapsed': activeWeek !== weeknumber }"
+                                    :data-bs-target="'#collapse' + weeknumber" 
+                                    :aria-expanded="activeWeek === weeknumber"
+                                    :aria-controls="'collapse' + weeknumber"
+                                    @click="activeWeek = activeWeek === weeknumber ? -1 : weeknumber">
+                                Week {{ weeknumber }}
+                            </button>
+                        </h2>
+                        <div class="aaccordion-collapse collapse" 
+                            :class="{ 'show': activeWeek === weeknumber }"
+                            :id="'collapse' + weeknumber"
+                            data-bs-parent="#accordion">
+                            <div class="accordion-body" :style="{padding: '0'}">
+                                <ul class="list-group" :style="{margin: '0',borderRadius: '0'}">
+                                    <li class="list-group-item" v-for="lecture in sortedLectures(weeknumber)" 
+                                        :key="lecture.lecturenumber"
+                                        :style="{ height: '65px', display: 'flex', alignItems: 'center',margin: '0'}">
+                                        <a :href="lecture.link" target="_blank"
+                                           :style="{ display: 'flex', alignItems: 'center',width: '100%', height: '100%', textDecoration: 'none', color: 'inherit' }">
+                                            L{{ lecture.lecturenumber }} {{ lecture.title }}</a>
+                                    </li>
+                                    <li class="list-group-item"
+                                        :style="{ height: '65px', display: 'flex', alignItems: 'center',margin: '0'}"
+                                    > Mock Questions </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     </div>              
     `,
     data() {

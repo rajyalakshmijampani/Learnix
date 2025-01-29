@@ -1,10 +1,15 @@
 from flask import current_app as app,jsonify,request,render_template,Response,redirect
 from flask_security import auth_required, roles_required,current_user
 from flask_restful import marshal,fields
-from .models import db,User,Role,Lecture
+from .models import db,User,Role,Course,Registration,Lecture
 from .datastore import datastore
 from werkzeug.security import check_password_hash, generate_password_hash
 from sqlalchemy import distinct
+
+course_fields = {
+    "id": fields.Integer,
+    "name": fields.String
+    }
 
 @app.get('/login')
 def login():
@@ -63,6 +68,15 @@ def user_login():
         return jsonify({**marshalled_data, **{"role":user.roles[0].name,"token":user.get_auth_token()}})
     else:
         return jsonify({"message":"Incorrect password"}),400
+    
+@app.get('/user/<int:user_id>/currentcourses')
+def get_user_currentbooks(user_id):
+    registered_subquery = Registration.query.with_entities(Registration.course_id).filter_by(user_id=user_id).subquery()
+    registered_courses = Course.query.with_entities(Course.id,Course.name).filter(Course.id.in_(registered_subquery)).all()
+    print(registered_courses)
+    result = [{"id": course[0], "name": course[1]} for course in registered_courses]
+    print(result)
+    return jsonify(result)
 
 @app.route('/get_all_lectures', methods=['GET'])
 def get_all_lectures():
