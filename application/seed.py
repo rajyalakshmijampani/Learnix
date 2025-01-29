@@ -83,8 +83,7 @@ def seed_database():
                             graded_assignments=[
                                 AssignmentProgress(assignment_id="assign_1", score=8, max_score=10)
                             ],
-                            practice_assignments=[                                AssignmentProgress(assignment_id="assign_1", score=8, max_score=10)
-]
+                            practice_assignments=[AssignmentProgress(assignment_id="assign_1", score=8, max_score=10)]
                         )
                     }
                 )
@@ -109,8 +108,7 @@ def seed_database():
                             graded_assignments=[
                                 AssignmentProgress(assignment_id="assign_2", score=10, max_score=10)
                             ],
-                            practice_assignments=[                                AssignmentProgress(assignment_id="assign_1", score=8, max_score=10)
-]
+                            practice_assignments=[AssignmentProgress(assignment_id="assign_1", score=8, max_score=10)]
                         )
                     }
                 )

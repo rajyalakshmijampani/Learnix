@@ -77,7 +77,7 @@ class Question(EmbeddedDocument):
     question = StringField(required=True)
     options = ListField(StringField(), required=True)
     correct_option = IntField(required=True)
-
+##
 
 # Embedded document for assignments
 class Assignment(EmbeddedDocument):
@@ -102,7 +102,15 @@ class Course(Document):
     created_at = DateTimeField(default=datetime.datetime.utcnow)
     updated_at = DateTimeField(default=datetime.datetime.utcnow)
 
-
+    def to_dict(self):
+        """Convert Course object to dictionary format"""
+        return {
+            **self.to_mongo().to_dict(),
+            "_id": str(self.id),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+    
 # Embedded document for video progress
 class VideoProgress(EmbeddedDocument):
     video_id = StringField(required=True)
@@ -115,7 +123,7 @@ class AssignmentProgress(EmbeddedDocument):
     assignment_id = StringField(required=True)
     score = IntField(min_value=0, required=True)
     max_score = IntField(min_value=0, required=True)
-
+#add marked options
 
 # Embedded document for weekly progress
 class WeeklyProgress(EmbeddedDocument):

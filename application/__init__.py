@@ -58,5 +58,7 @@ def create_app():
     # Add CRUD resources to the API
     api.add_resource(Test, '/test')
     api.add_resource(Courses, '/courses')
+    api.add_resource(StudentById, '/students/<string:student_id>')
+    api.add_resource(CourseById, '/courses/<string:course_id>')
 
     return app
