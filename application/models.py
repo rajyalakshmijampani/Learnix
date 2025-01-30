@@ -36,6 +36,7 @@ class Registration(db.Model):
 
 class Lecture(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    course_id=db.Column(db.Integer,db.ForeignKey('course.id'))
     lectureNumber = db.Column(db.Float, nullable=False)
     title = db.Column(db.String, nullable=False)
     link = db.Column(db.String, nullable=False)

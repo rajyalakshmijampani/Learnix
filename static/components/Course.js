@@ -1,9 +1,10 @@
 export default {
     template: `
-    <b-card style="margin-right:15px;margin-bottom:40px;height:200px;border:1px solid #015668;
-            background: url('http://localhost:5000/static/images/course_background.jpg') center/cover no-repeat;">
-            <p class="card-text" style="margin-left:7px;margin-top:5px;font-size:28px; color:white;">{{course.name}}</p>
-            <p style="margin-left:7px;margin-top:2px;font-size:14px; color:white;">NEW COURSE</p>
+    <b-card @click="navigate(course.id)"
+              style="cursor: pointer; margin-right:15px;margin-bottom:40px;height:200px;border:1px solid #015668;
+              background: url('http://localhost:5000/static/images/course_background.jpg') center/cover no-repeat;">
+              <p class="card-text" style="margin-left:7px;margin-top:5px;font-size:28px; color:white;">{{course.name}}</p>
+              <p style="margin-left:7px;margin-top:2px;font-size:14px; color:white;">NEW COURSE</p>
     </b-card>
     `,
     props: ['course'],
@@ -14,5 +15,10 @@ export default {
       }
     },
     methods: {
+      navigate(courseId) {
+        if (courseId === 1) {
+          this.$router.push({ path: '/coursecontents', query: { id: courseId } });
+        }
+      }
     },
   }

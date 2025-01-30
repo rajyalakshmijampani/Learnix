@@ -59,17 +59,6 @@ export default {
         const splitQuote = randomQuote.split("–");
         this.quoteText = splitQuote[0].trim(); // Extract the quote text
         this.quoteAuthor = splitQuote[1].trim(); // Extract the author's name
-
-        // Fetch all lectures
-        fetch('/get_all_lectures') 
-          .then(response => response.json())
-          .then(data => {
-            this.lectures = data;
-            this.weeks = new Set([...this.lectures
-                .map(lecture => lecture.weeknumber) // Extract week numbers
-                .sort((a, b) => a - b) // Sort in ascending order
-              ]);
-          });
     },
     methods: {
         profile() {
