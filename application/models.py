@@ -114,7 +114,7 @@ class Course(Document):
         """Convert Course object to dictionary format"""
         return {
             **self.to_mongo().to_dict(),
-            "_id": str(self.id),
+            "id": str(self.id),
             "created_at": str(self.created_at.isoformat()) if self.created_at else None,
             "updated_at": str(self.updated_at.isoformat()) if self.updated_at else None,
         }

@@ -80,9 +80,11 @@ def seed_databases():
         student_data = [
             ('Alice Johnson', 'alice@example.com'),
             ('Bob Smith', 'bobs@example.com'),
-            ('Carol White', 'carol@example.com')
+            ('Carol White', 'carol@example.com'),
+            ('David Brown', 'david@example.com')
         ]
         
+        student_docs = []
         for name, email in student_data:
             if not User.query.filter_by(email=email).first():
                 student_id = str(uuid.uuid4())
@@ -99,44 +101,75 @@ def seed_databases():
 
                 # Create MongoDB student document if not exists
                 if not Student.objects(email=email).first():
-                    Student(
+                    student_doc = Student(
                         id=student_id,
                         name=name,
-                        email=email
-                    ).save()
+                        email=email,
+                        course_progress=[]
+                    )
+                    student_doc.save()
+                    student_docs.append(student_doc)
 
         db.session.commit()
 
-        # Create course in MongoDB if not exists
-        if not Course.objects(title="Introduction to Python").first():
-            course_1 = Course(
-                id=uuid.uuid4(),
-                title="Introduction to Python",
-                description="Learn Python programming from scratch.",
-                category="Programming",
-                instructors=instructor_docs[:2],  # First two instructors
-                weeks={
-                    "week_1": WeeklyContent(
-                        videos=[
-                            Video(video_id=str(uuid.uuid4()), title="Intro to Python", 
-                                 url="http://example.com/video1", transcript="Transcript 1", duration=600)
-                        ],
-                        graded_assignments=[
-                            Assignment(assignment_id=str(uuid.uuid4()), questions=[
-                                Question(question="What is Python?", 
-                                       options=["Language", "Animal"], 
-                                       correct_option=0)
-                            ])
-                        ]
-                    )
-                }
-            )
-            course_1.save()
+        # Create courses in MongoDB if not exists
+        courses = [
+            ("Introduction to Python", "Learn Python programming from scratch.", "Programming"),
+            ("Data Structures & Algorithms", "Master fundamental data structures and algorithms.", "Computer Science")
+        ]
+        
+        course_docs = []
+        for title, description, category in courses:
+            if not Course.objects(title=title).first():
+                course = Course(
+                    id=uuid.uuid4(),
+                    title=title,
+                    description=description,
+                    category=category,
+                    instructors=instructor_docs[:2],  # Assign first two instructors
+                    weeks={
+                        f"week_{i+1}": WeeklyContent(
+                            videos=[
+                                Video(video_id=str(uuid.uuid4()), title=f"{title} - Week {i+1} Video 1", url="http://example.com/video1", transcript=f"Transcript {i+1}", duration=600),
+                                Video(video_id=str(uuid.uuid4()), title=f"{title} - Week {i+1} Video 2", url="http://example.com/video2", transcript=f"Transcript {i+1}", duration=700)
+                            ],
+                            graded_assignments=[
+                                Assignment(assignment_id=str(uuid.uuid4()), questions=[
+                                    Question(question=f"{title} - Week {i+1} Question {j+1}", options=["Option A", "Option B"], correct_option=0)
+                                    for j in range(10)
+                                ])
+                            ],
+                            practice_assignments=[
+                                Assignment(assignment_id=str(uuid.uuid4()), questions=[
+                                    Question(question=f"{title} - Week {i+1} Practice Question {j+1}", options=["Option A", "Option B"], correct_option=0)
+                                    for j in range(10)
+                                ])
+                            ]
+                        ) for i in range(4)
+                    }
+                )
+                course.save()
+                course_docs.append(course)
 
+        # Subscribe students to two courses and add progress for one week
+        for student in student_docs[:2]:
+            progress = []
+            for course in course_docs[:2]:
+                progress.append(CourseProgress(
+                    course_id=str(course.id),
+                    weekly_progress={
+                        "week_1": WeeklyProgress(
+                            videos=[VideoProgress(video_id=video.video_id, status="completed") for video in course.weeks["week_1"].videos],
+                            graded_assignments=[AssignmentProgress(assignment_id=assignment.assignment_id, score=8, max_score=10, marked_options=[0]*10) for assignment in course.weeks["week_1"].graded_assignments],
+                            practice_assignments=[AssignmentProgress(assignment_id=assignment.assignment_id, score=10, max_score=10, marked_options=[2]*10) for assignment in course.weeks["week_1"].practice_assignments]
+                        )
+                    }
+                ))
+            student.course_progress = progress
+            student.save()
+
+        print("Database seeding completed!")
     except Exception as e:
         print(f"Error during seeding: {str(e)}")
         db.session.rollback()
         raise e
-
-    print("Database seeding completed!")
-
