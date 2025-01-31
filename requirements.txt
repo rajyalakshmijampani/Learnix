@@ -17,8 +17,10 @@ importlib-metadata==8.6.1
 itsdangerous==2.2.0
 jinja2==3.1.5
 MarkupSafe==3.0.2
+mongoengine==0.29.1
 passlib==1.7.4
 PyJWT==2.9.0
+pymongo==4.10.1
 pytz==2024.2
 six==1.17.0
 SQLAlchemy==2.0.37
