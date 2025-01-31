@@ -5,6 +5,8 @@ from flask_restful import Resource
 from application.models import *
 from application.database import db
 from bson import json_util
+import uuid
+import datetime
 
 class Test(Resource):
     def get(self):
@@ -30,27 +32,78 @@ class Courses(Resource):
 
 class StudentById(Resource):
     def get(self, student_id):
-        student = Student.objects(id=student_id).first()
-        if not student:
-            return {"msg": "Student not found"}, 404
-        return student.to_mongo().to_dict(), 200
+        try:
+            student = Student.objects(id=uuid.UUID(student_id)).first()
+            if not student:
+                return {"msg": "Student not found"}, 404
+            
+            # Use the to_dict method which properly handles datetime serialization
+            return student.to_dict(), 200
+            
+        except ValueError:
+            return {"msg": "Invalid UUID format"}, 400
+        except Exception as e:
+            return {"msg": f"Error: {str(e)}"}, 500
+
+    def put(self, student_id):
+        try:
+            student = Student.objects(id=uuid.UUID(student_id)).first()
+            if not student:
+                return {"msg": "Student not found"}, 404
+
+            data = request.json
+            allowed_fields = ['name', 'email', 'course_progress']
+            update_data = {k: v for k, v in data.items() if k in allowed_fields}
+            
+            # Add updated_at timestamp
+            update_data['updated_at'] = datetime.datetime.utcnow()
+
+            # Use modify instead of update for better control
+            student.modify(**update_data)
+            student.reload()
+
+            return student.to_dict(), 200
+
+        except ValueError:
+            return {"msg": "Invalid UUID format"}, 400
+        except Exception as e:
+            return {"msg": f"Error updating student: {str(e)}"}, 500
 
 class CourseById(Resource):
     def get(self, course_id):
-        course = Course.objects(id=course_id).first()
-        if not course:
-            return {"msg": "Course not found"}, 404
-        return course.to_dict(), 200
-    # @role_required('admin')
-    def put(self, course_id):
-        course = Course.objects(id=course_id).first()
-        if not course:
-            return {"msg": "Course not found"}, 404
+        try:
+            course = Course.objects(id=uuid.UUID(course_id)).first()
+            if not course:
+                return {"msg": "Course not found"}, 404
+            return course.to_dict(), 200
+        except ValueError:
+            return {"msg": "Invalid UUID format"}, 400
+        except Exception as e:
+            return {"msg": f"Error: {str(e)}"}, 500
 
-        data = request.json
-        course.update(**data)
-        course.reload()
-        return course.to_dict(), 200
+    def put(self, course_id):
+        try:
+            course = Course.objects(id=uuid.UUID(course_id)).first()
+            if not course:
+                return {"msg": "Course not found"}, 404
+
+            data = request.json
+            allowed_fields = ['title', 'description', 'category', 'instructors', 'weeks']
+            update_data = {k: v for k, v in data.items() if k in allowed_fields}
+            
+            # Add updated_at timestamp
+            update_data['updated_at'] = datetime.datetime.utcnow()
+
+            # Use modify instead of update for better control
+            course.modify(**update_data)
+            course.reload()
+
+            return course.to_dict(), 200
+
+        except ValueError:
+            return {"msg": "Invalid UUID format"}, 400
+        except Exception as e:
+            return {"msg": f"Error updating course: {str(e)}"}, 500
 
 
 

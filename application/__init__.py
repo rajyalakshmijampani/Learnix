@@ -7,7 +7,8 @@ from application.Auth_Apis import UserRegistration, UserLogin, ProtectedResource
 from application.models import User, Role
 from werkzeug.security import generate_password_hash
 from application.CRUD_Apis import *
-from application.seed import seed_database
+from application.seed import seed_databases
+
 def create_app():
     app = Flask(__name__)
 
@@ -22,32 +23,7 @@ def create_app():
     # Create database tables if they do not exist
     with app.app_context():
         db.create_all()
-
-        # Check if the admin role exists, if not, create it
-        admin_role = Role.query.filter_by(name='admin').first()
-        if not admin_role:
-            admin_role = Role(name='admin', description='Administrator role')
-            db.session.add(admin_role)
-            db.session.commit()
-
-        # Check if the default admin user exists, if not, create it
-        admin_user = User.query.filter_by(email='admin@example.com').first()
-        if not admin_user:
-            hashed_password = generate_password_hash('adminpassword')  # Set a default password
-            admin_user = User(
-                name='Admin',
-                email='admin@example.com',
-                password=hashed_password,
-                active=True,
-                fs_uniquifier='admin-uniquifier',
-            )
-            db.session.add(admin_user)
-            db.session.commit()
-
-            # Assign the admin role to the new admin user
-            admin_user.roles.append(admin_role)
-            db.session.commit()
-    seed_database()
+        seed_databases()
 
     # Add Auth resources to the API
     api.add_resource(UserRegistration, '/register')

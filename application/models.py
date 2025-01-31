@@ -5,9 +5,10 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from functools import wraps
 from mongoengine import (
     Document, EmbeddedDocument, StringField, ListField, EmbeddedDocumentField,
-    IntField, FloatField, BooleanField, DictField, DateTimeField, ReferenceField
+    IntField, FloatField, BooleanField, DictField, DateTimeField, ReferenceField, UUIDField
 )
 import datetime
+import uuid
 
 
 def role_required(role):
@@ -36,15 +37,15 @@ def role_required(role):
         return wrapper
     return decorator
 
-class User(db.Model,UserMixin):
-    id=db.Column(db.Integer(),primary_key=True)
-    name=db.Column(db.String(25),nullable=False)
-    email=db.Column(db.String(50),unique=True)
-    password=db.Column(db.String,nullable=False)
+class User(db.Model, UserMixin):
+    id = db.Column(db.String(36), primary_key=True)  # Changed to String to store UUID
+    name = db.Column(db.String(25), nullable=False)
+    email = db.Column(db.String(50), unique=True)
+    password = db.Column(db.String(255), nullable=False)  # Increased length for hash
     active = db.Column(db.Boolean)
-    fs_uniquifier = db.Column(db.String(255),unique=True,nullable=False)
-    roles = db.relationship('Role',secondary='roles_users',
-                            backref = db.backref('users',lazy='dynamic'))
+    fs_uniquifier = db.Column(db.String(255), unique=True, nullable=False)
+    roles = db.relationship('Role', secondary='roles_users',
+                          backref=db.backref('users', lazy='dynamic'))
 
 class Role(db.Model,RoleMixin):
     id = db.Column(db.Integer(),primary_key=True)
@@ -52,9 +53,9 @@ class Role(db.Model,RoleMixin):
     description = db.Column(db.String(255))
 
 class RolesUsers(db.Model):
-    id = db.Column(db.Integer(),primary_key=True)
-    user_id = db.Column('user_id',db.Integer(),db.ForeignKey('user.id'))
-    role_id = db.Column('role_id',db.Integer(),db.ForeignKey('role.id'))
+    id = db.Column(db.Integer(), primary_key=True)
+    user_id = db.Column('user_id', db.String(36), db.ForeignKey('user.id'))  # Changed to String
+    role_id = db.Column('role_id', db.Integer(), db.ForeignKey('role.id'))
 
 class Lecture(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -92,12 +93,19 @@ class WeeklyContent(EmbeddedDocument):
     practice_assignments = ListField(EmbeddedDocumentField(Assignment))
 
 
+# Embedded document for instructors
+class Instructor(EmbeddedDocument):
+    instructor_id = StringField(required=True)
+    name = StringField(required=True)
+
+
 # Main document for Course
 class Course(Document):
+    id = UUIDField(primary_key=True, default=uuid.uuid4)
     title = StringField(required=True, max_length=255)
     description = StringField(required=True)
     category = StringField(required=True, max_length=100)
-    instructors = ListField(StringField(), required=True)  # List of instructor IDs
+    instructors = ListField(EmbeddedDocumentField(Instructor), required=True)
     weeks = DictField(field=EmbeddedDocumentField(WeeklyContent))
     created_at = DateTimeField(default=datetime.datetime.utcnow)
     updated_at = DateTimeField(default=datetime.datetime.utcnow)
@@ -107,13 +115,13 @@ class Course(Document):
         return {
             **self.to_mongo().to_dict(),
             "_id": str(self.id),
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "created_at": str(self.created_at.isoformat()) if self.created_at else None,
+            "updated_at": str(self.updated_at.isoformat()) if self.updated_at else None,
         }
     
 # Embedded document for video progress
 class VideoProgress(EmbeddedDocument):
-    video_id = StringField(required=True)
+    video_id = StringField(required=True,primary_key=True)
     status = StringField(choices=["not_started", "in_progress", "completed"], required=True)
     timestamp = DateTimeField(default=datetime.datetime.utcnow)
 
@@ -123,7 +131,7 @@ class AssignmentProgress(EmbeddedDocument):
     assignment_id = StringField(required=True)
     score = IntField(min_value=0, required=True)
     max_score = IntField(min_value=0, required=True)
-#add marked options
+    marked_options = ListField(IntField())  # Store indices of marked options
 
 # Embedded document for weekly progress
 class WeeklyProgress(EmbeddedDocument):
@@ -136,10 +144,49 @@ class CourseProgress(EmbeddedDocument):
     course_id = StringField(required=True)  # Reference to Course ID
     weekly_progress = DictField(field=EmbeddedDocumentField(WeeklyProgress), required=True)
 
+    def to_dict(self):
+        data = {
+            'course_id': self.course_id,
+            'weekly_progress': {}
+        }
+        for week, progress in self.weekly_progress.items():
+            data['weekly_progress'][week] = {
+                'videos': [{
+                    'video_id': v.video_id,
+                    'status': v.status,
+                    'timestamp': str(v.timestamp)
+                } for v in progress.videos],
+                'graded_assignments': [{
+                    'assignment_id': a.assignment_id,
+                    'score': a.score,
+                    'max_score': a.max_score,
+                    'marked_options': a.marked_options
+                } for a in progress.graded_assignments],
+                'practice_assignments': [{
+                    'assignment_id': a.assignment_id,
+                    'score': a.score,
+                    'max_score': a.max_score,
+                    'marked_options': a.marked_options
+                } for a in progress.practice_assignments]
+            }
+        return data
+
 # Main Student document
 class Student(Document):
+    id = UUIDField(primary_key=True, default=uuid.uuid4)
     name = StringField(required=True, max_length=255)
     email = StringField(required=True, unique=True)
-    course_progress = ListField(EmbeddedDocumentField(CourseProgress), required=True)
+    course_progress = ListField(EmbeddedDocumentField(CourseProgress), default=list)  # Make it optional with default empty list
     created_at = DateTimeField(default=datetime.datetime.utcnow)
     updated_at = DateTimeField(default=datetime.datetime.utcnow)
+
+    def to_dict(self):
+        """Convert Student object to dictionary format with proper datetime handling"""
+        return {
+            'id': str(self.id),
+            'name': self.name,
+            'email': self.email,
+            'course_progress': [cp.to_dict() for cp in self.course_progress],
+            'created_at': str(self.created_at) if self.created_at else None,
+            'updated_at': str(self.updated_at) if self.updated_at else None
+        }
