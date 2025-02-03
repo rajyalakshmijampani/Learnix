@@ -9,6 +9,8 @@ from mongoengine import (
 )
 import datetime
 import uuid
+from bson import json_util
+import json
 
 
 def role_required(role):
@@ -36,6 +38,7 @@ def role_required(role):
         
         return wrapper
     return decorator
+
 
 class User(db.Model, UserMixin):
     id = db.Column(db.String(36), primary_key=True)  # Changed to String to store UUID
@@ -72,12 +75,29 @@ class Video(EmbeddedDocument):
     transcript = StringField()
     duration = IntField(min_value=0)
 
+    def to_dict(self):
+         return {
+            "video_id": self.video_id,
+            "title": self.title,
+            "url": self.url,
+            "transcript": self.transcript,
+            "duration": self.duration
+        }
+
 
 # Embedded document for questions in assignments
 class Question(EmbeddedDocument):
     question = StringField(required=True)
     options = ListField(StringField(), required=True)
     correct_option = IntField(required=True)
+
+    def to_dict(self):
+      return {
+            "question": self.question,
+            "options": self.options,
+            "correct_option": self.correct_option
+        }
+
 ##
 
 # Embedded document for assignments
@@ -85,18 +105,37 @@ class Assignment(EmbeddedDocument):
     assignment_id = StringField(required=True, unique=True)
     questions = ListField(EmbeddedDocumentField(Question), required=True)
 
+    def to_dict(self):
+        return {
+            "assignment_id": self.assignment_id,
+            "questions": [question.to_dict() for question in self.questions]
+        }
+
 
 # Embedded document for weekly content
 class WeeklyContent(EmbeddedDocument):
     videos = ListField(EmbeddedDocumentField(Video), required=True)
     graded_assignments = ListField(EmbeddedDocumentField(Assignment))
     practice_assignments = ListField(EmbeddedDocumentField(Assignment))
+    
+    def to_dict(self):
+        return {
+            "videos": [video.to_dict() for video in self.videos],
+            "graded_assignments": [assignment.to_dict() for assignment in self.graded_assignments],
+            "practice_assignments": [assignment.to_dict() for assignment in self.practice_assignments]
+        }
 
 
 # Embedded document for instructors
 class Instructor(EmbeddedDocument):
     instructor_id = StringField(required=True)
     name = StringField(required=True)
+
+    def to_dict(self):
+        return {
+            "instructor_id": self.instructor_id,
+            "name": self.name
+        }
 
 
 # Main document for Course
@@ -111,20 +150,29 @@ class Course(Document):
     updated_at = DateTimeField(default=datetime.datetime.utcnow)
 
     def to_dict(self):
-        """Convert Course object to dictionary format"""
         return {
-            **self.to_mongo().to_dict(),
             "id": str(self.id),
-            "created_at": str(self.created_at.isoformat()) if self.created_at else None,
-            "updated_at": str(self.updated_at.isoformat()) if self.updated_at else None,
+            "title": self.title,
+            "description": self.description,
+            "category": self.category,
+            "instructors": [instructor.to_dict() for instructor in self.instructors],
+            "weeks": {week: content.to_dict() for week, content in self.weeks.items()},
+             "created_at": str(self.created_at.isoformat()) if self.created_at else None,
+            "updated_at": str(self.updated_at.isoformat()) if self.updated_at else None
         }
     
 # Embedded document for video progress
 class VideoProgress(EmbeddedDocument):
-    video_id = StringField(required=True,primary_key=True)
+    video_id = StringField(required=True, primary_key=True)
     status = StringField(choices=["not_started", "in_progress", "completed"], required=True)
     timestamp = DateTimeField(default=datetime.datetime.utcnow)
-
+    
+    def to_dict(self):
+        return {
+            "video_id":self.video_id,
+            "status":self.status,
+            "timestamp": str(self.timestamp)
+        }
 
 # Embedded document for assignment progress
 class AssignmentProgress(EmbeddedDocument):
@@ -132,43 +180,40 @@ class AssignmentProgress(EmbeddedDocument):
     score = IntField(min_value=0, required=True)
     max_score = IntField(min_value=0, required=True)
     marked_options = ListField(IntField())  # Store indices of marked options
+    
+    def to_dict(self):
+        return{
+           "assignment_id": self.assignment_id,
+            "score":self.score,
+            "max_score":self.max_score,
+            "marked_options":self.marked_options
+        }
 
 # Embedded document for weekly progress
 class WeeklyProgress(EmbeddedDocument):
     videos = ListField(EmbeddedDocumentField(VideoProgress), required=True)
     graded_assignments = ListField(EmbeddedDocumentField(AssignmentProgress))
     practice_assignments = ListField(EmbeddedDocumentField(AssignmentProgress))
+    
+    def to_dict(self):
+        return {
+        "videos": [video.to_dict() for video in self.videos],
+        "graded_assignments": [assignment.to_dict() for assignment in self.graded_assignments],
+        "practice_assignments": [assignment.to_dict() for assignment in self.practice_assignments]
+        }
 
 # Embedded document for course progress
 class CourseProgress(EmbeddedDocument):
     course_id = StringField(required=True)  # Reference to Course ID
     weekly_progress = DictField(field=EmbeddedDocumentField(WeeklyProgress), required=True)
-
+    
     def to_dict(self):
         data = {
             'course_id': self.course_id,
             'weekly_progress': {}
         }
         for week, progress in self.weekly_progress.items():
-            data['weekly_progress'][week] = {
-                'videos': [{
-                    'video_id': v.video_id,
-                    'status': v.status,
-                    'timestamp': str(v.timestamp)
-                } for v in progress.videos],
-                'graded_assignments': [{
-                    'assignment_id': a.assignment_id,
-                    'score': a.score,
-                    'max_score': a.max_score,
-                    'marked_options': a.marked_options
-                } for a in progress.graded_assignments],
-                'practice_assignments': [{
-                    'assignment_id': a.assignment_id,
-                    'score': a.score,
-                    'max_score': a.max_score,
-                    'marked_options': a.marked_options
-                } for a in progress.practice_assignments]
-            }
+            data['weekly_progress'][week] = progress.to_dict()
         return data
 
 # Main Student document
@@ -181,12 +226,11 @@ class Student(Document):
     updated_at = DateTimeField(default=datetime.datetime.utcnow)
 
     def to_dict(self):
-        """Convert Student object to dictionary format with proper datetime handling"""
         return {
-            'id': str(self.id),
-            'name': self.name,
-            'email': self.email,
-            'course_progress': [cp.to_dict() for cp in self.course_progress],
-            'created_at': str(self.created_at) if self.created_at else None,
-            'updated_at': str(self.updated_at) if self.updated_at else None
+            "id": str(self.id),
+            "name": self.name,
+            "email": self.email,
+             "course_progress": [cp.to_dict() for cp in self.course_progress],
+             "created_at": str(self.created_at.isoformat()) if self.created_at else None,
+             "updated_at": str(self.updated_at.isoformat()) if self.updated_at else None
         }
