@@ -1,3 +1,5 @@
+// This file has code for iframe with nav bar
+
 import Navbar from "/static/components/Navbar.js"
 
 export default {
@@ -20,22 +22,35 @@ export default {
                                     Week {{ weeknumber }}
                                 </button>
                             </h2>
-                            <div class="aaccordion-collapse collapse" 
+                            <div class="accordion-collapse collapse" 
                                 :class="{ 'show': activeWeek === weeknumber }"
                                 :id="'collapse' + weeknumber"
                                 data-bs-parent="#accordion">
-                                <div class="accordion-body" :style="{padding: '0'}">
-                                    <ul class="list-group" :style="{margin: '0',borderRadius: '0'}">
-                                        <li class="list-group-item" v-for="lecture in sortedLectures(weeknumber)" 
+                               <div class="accordion-body" :style="{ padding: '0' }">
+                                    <ul class="list-group" :style="{ margin: '0', borderRadius: '0' }">
+                                        <li class="list-group-item"
+                                            v-for="lecture in sortedLectures(weeknumber)" 
                                             :key="lecture.lecturenumber"
-                                            :style="{ height: '65px', display: 'flex', alignItems: 'center',margin: '0'}">
-                                            <a :href="lecture.link" target="_blank"
-                                            :style="{ display: 'flex', alignItems: 'center',width: '100%', height: '100%', textDecoration: 'none', color: 'inherit' }">
-                                                L{{ lecture.lecturenumber }} {{ lecture.title }}</a>
+                                            :style="{
+                                                height: '65px', 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                margin: '0',
+                                                backgroundColor: selectedLectureNumber === lecture.lecturenumber ? '#f8f1e4' : 'white', 
+                                                fontWeight: selectedLectureNumber === lecture.lecturenumber ? 'bold' : 'normal',
+                                                cursor: 'pointer'
+                                            }"
+                                            @click="playLecture(lecture.link, lecture.title, lecture.lecturenumber)">
+                                            
+                                            <a href="#" @click.prevent
+                                                :style="{ display: 'flex', alignItems: 'center', width: '100%', height: '100%', textDecoration: 'none', color: 'inherit' }">
+                                                L{{ lecture.lecturenumber }} {{ lecture.title }}
+                                            </a>
                                         </li>
                                         <li class="list-group-item"
-                                            :style="{ height: '65px', display: 'flex', alignItems: 'center',margin: '0'}"
-                                        > Mock Questions </li>
+                                            :style="{ height: '65px', display: 'flex', alignItems: 'center', margin: '0' }">
+                                            Mock Questions
+                                        </li>
                                     </ul>
                                 </div>
                             </div>
@@ -43,6 +58,19 @@ export default {
                     </div>
                 </div>
             </div>
+
+            <!-- Video Player -->
+            <div class="col-10" style="width: 80%; padding: 20px;">
+                <div v-if="selectedLecture" class="video-container" style="text-align: center;">
+                    <h4 style="color: #015668; margin-bottom: 20px;">Lecture {{ selectedLectureNumber }}: {{ selectedLectureTitle }}</h4>
+                    <iframe 
+                        :src="selectedLecture"
+                        style="width: 80%; height: 500px; border: none;"
+                        allowfullscreen>
+                    </iframe>
+                </div>
+            </div>
+
         </div>
     </Navbar>
     `,
@@ -59,6 +87,10 @@ export default {
             weeks: [],
             activeWeek: 1, // Tracks which week content is open by default
             lectures: [],
+            selectedLecture: null, // Stores the selected lecture video link
+            selectedLectureTitle: "",  // Store the selected lecture title
+            selectedLectureNumber: null // Track selected lecture
+
         }
     },
     created(){
@@ -72,8 +104,10 @@ export default {
             const res = await fetch(`/get_all_lectures/${this.id}`, {
                 headers: {
                     "Authentication-Token": this.token
-                    }
-                })
+
+                }
+            })
+
             if (res.ok) {
                 const data = await res.json()
                 this.lectures = data
@@ -81,7 +115,9 @@ export default {
                     .map(lecture => lecture.weeknumber) // Extract week numbers
                     .sort((a, b) => a - b) // Sort in ascending order
                   ]);
-                }
+
+            }
+
         },
         toggleAccordion(index) {
             this.activeIndex = this.activeIndex === index ? null : index;
@@ -91,5 +127,20 @@ export default {
               .filter(lecture => lecture.weeknumber === week)
               .sort((a, b) => a.lecturenumber - b.lecturenumber);
         },
+
+        playLecture(link, video_title, lecturenumber) {
+            // Convert youtu.be link to embed format
+            if (link.includes("youtu.be/")) {
+                let videoId = link.split("youtu.be/")[1]; // Extract video ID
+                this.selectedLecture = `https://www.youtube.com/embed/${videoId}`;
+                this.selectedLectureTitle = video_title;
+                this.selectedLectureNumber = lecturenumber; 
+            } else {
+                this.selectedLecture = link; // Use the same link if it's already an embed link
+                this.selectedLectureTitle = video_title;
+                this.selectedLectureNumber = lecturenumber; 
+            }
+        }
     }
 }
+

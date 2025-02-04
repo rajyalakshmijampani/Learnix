@@ -95,3 +95,41 @@ def get_all_lectures(id):
             'weeknumber': lecture.weekNumber,
         })
     return jsonify(lectures_data)
+
+@app.post('/update_profile')
+def update_profile():
+    data = request.json
+    user_id = data.get("userId")
+    new_name = data.get("name")
+    new_email = data.get("email")
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"success": False, "error": "User not found"}), 404
+
+    user.name = new_name
+    user.email = new_email
+    db.session.commit()
+
+    return jsonify({"success": True})
+
+@app.route('/change_password', methods=['POST'])
+def change_password():
+    data = request.get_json()
+    user_id = data.get('userId')
+    old_password = data.get('oldPassword')
+    new_password = data.get('newPassword')
+
+    user = User.query.get(user_id)
+
+    # Check if the old password is correct
+    if not check_password_hash(user.password, old_password):
+        return jsonify({"success": False, "error": "Incorrect old password"}), 400
+
+    # Hash the new password
+    user.password = generate_password_hash(new_password)
+
+    # Save the new password
+    db.session.commit()
+
+    return jsonify({"success": True})
