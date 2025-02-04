@@ -376,8 +376,8 @@ export default {
     mounted() {    
         const randomQuote = this.quotes[Math.floor(Math.random() * this.quotes.length)];
         const splitQuote = randomQuote.split("–");
-        this.quoteText = splitQuote[0].trim(); 
-        this.quoteAuthor = splitQuote[1].trim(); 
+        this.quoteText = splitQuote[0].trim(); // Extract the quote text
+        this.quoteAuthor = splitQuote[1].trim(); // Extract the author's name
     },
     methods: {
         profile() {

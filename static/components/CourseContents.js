@@ -70,6 +70,7 @@ export default {
                     </iframe>
                 </div>
             </div>
+
         </div>
     </Navbar>
     `,
@@ -89,6 +90,7 @@ export default {
             selectedLecture: null, // Stores the selected lecture video link
             selectedLectureTitle: "",  // Store the selected lecture title
             selectedLectureNumber: null // Track selected lecture
+
         }
     },
     created(){
@@ -102,8 +104,10 @@ export default {
             const res = await fetch(`/get_all_lectures/${this.id}`, {
                 headers: {
                     "Authentication-Token": this.token
+
                 }
             })
+
             if (res.ok) {
                 const data = await res.json()
                 this.lectures = data
@@ -111,7 +115,9 @@ export default {
                     .map(lecture => lecture.weeknumber) // Extract week numbers
                     .sort((a, b) => a - b) // Sort in ascending order
                   ]);
+
             }
+
         },
         toggleAccordion(index) {
             this.activeIndex = this.activeIndex === index ? null : index;
@@ -121,6 +127,7 @@ export default {
               .filter(lecture => lecture.weeknumber === week)
               .sort((a, b) => a.lecturenumber - b.lecturenumber);
         },
+
         playLecture(link, video_title, lecturenumber) {
             // Convert youtu.be link to embed format
             if (link.includes("youtu.be/")) {
@@ -136,3 +143,4 @@ export default {
         }
     }
 }
+
