@@ -8,6 +8,7 @@ from application.models import User, Role
 from werkzeug.security import generate_password_hash
 from application.CRUD_Apis import *
 from application.seed import seed_databases
+from application.Gen_Ai import CourseAssistant,GenerateQuestions
 
 def create_app():
     app = Flask(__name__)
@@ -36,5 +37,10 @@ def create_app():
     api.add_resource(Courses, '/courses')
     api.add_resource(StudentById, '/students/<string:student_id>')
     api.add_resource(CourseById, '/courses/<string:course_id>')
+    # Add Gen AI resources to the API
+    api.add_resource(CourseAssistant, '/chat/course')
+    api.add_resource(GenerateQuestions, "/generate-mcqs")
+
+
 
     return app
