@@ -3,10 +3,7 @@ from flask_security import UserMixin, RoleMixin
 from .database import db
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from functools import wraps
-from mongoengine import (
-    Document, EmbeddedDocument, StringField, ListField, EmbeddedDocumentField,
-    IntField, FloatField, BooleanField, DictField, DateTimeField, ReferenceField, UUIDField
-)
+from sqlalchemy.dialects.postgresql import JSON
 import datetime
 import uuid
 from bson import json_util
@@ -50,6 +47,16 @@ class User(db.Model, UserMixin):
     roles = db.relationship('Role', secondary='roles_users',
                           backref=db.backref('users', lazy='dynamic'))
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'email': self.email,
+            'active': self.active,
+            'roles': [role.name for role in self.roles],
+            'course_progress': [progress.to_dict() for progress in CourseProgress.query.filter_by(student_id=self.id).all()]
+        }
+
 class Role(db.Model,RoleMixin):
     id = db.Column(db.Integer(),primary_key=True)
     name = db.Column(db.String,unique=True)
@@ -60,177 +67,87 @@ class RolesUsers(db.Model):
     user_id = db.Column('user_id', db.String(36), db.ForeignKey('user.id'))  # Changed to String
     role_id = db.Column('role_id', db.Integer(), db.ForeignKey('role.id'))
 
-class Lecture(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    lectureNumber = db.Column(db.Float, nullable=False)
-    title = db.Column(db.String, nullable=False)
-    link = db.Column(db.String, nullable=False)
-    weekNumber = db.Column(db.Integer, nullable=False)
 
-# Embedded document for video content
-class Video(EmbeddedDocument):
-    video_id = StringField(required=True, unique=True)
-    title = StringField(required=True)
-    url = StringField(required=True)
-    transcript = StringField()
-    duration = IntField(min_value=0)
-
-    def to_dict(self):
-         return {
-            "video_id": self.video_id,
-            "title": self.title,
-            "url": self.url,
-            "transcript": self.transcript,
-            "duration": self.duration
-        }
+class Video(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    url = db.Column(db.String(255), nullable=False)
+    transcript = db.Column(db.Text)
+    duration = db.Column(db.Integer)
+    week_id = db.Column(db.String(36), db.ForeignKey('week.id'))
 
 
-# Embedded document for questions in assignments
-class Question(EmbeddedDocument):
-    question = StringField(required=True)
-    options = ListField(StringField(), required=True)
-    correct_option = IntField(required=True)
+class Question(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    question = db.Column(db.String(500), nullable=False)
+    options = db.Column(JSON)  # Stored as JSON array
+    correct_option = db.Column(db.Integer, nullable=False)
+    assignment_id = db.Column(db.String(36), db.ForeignKey('assignment.id'))
 
-    def to_dict(self):
-      return {
-            "question": self.question,
-            "options": self.options,
-            "correct_option": self.correct_option
-        }
+class Assignment(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    type = db.Column(db.String(20))  # 'graded' or 'practice'
+    week_id = db.Column(db.String(36), db.ForeignKey('week.id'))
+    questions = db.relationship('Question', backref='assignment', lazy=True)
 
-##
+class Week(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    week_number = db.Column(db.Integer, nullable=False)
+    course_id = db.Column(db.String(36), db.ForeignKey('course.id'))
+    videos = db.relationship('Video', backref='week', lazy=True)
+    assignments = db.relationship('Assignment', backref='week', lazy=True)
 
-# Embedded document for assignments
-class Assignment(EmbeddedDocument):
-    assignment_id = StringField(required=True, unique=True)
-    questions = ListField(EmbeddedDocumentField(Question), required=True)
+class Course(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    category = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    weeks = db.relationship('Week', backref='course', lazy=True)
+    instructors = db.relationship('User', 
+                                secondary='course_instructors',
+                                backref=db.backref('courses_teaching', lazy=True))
 
-    def to_dict(self):
-        return {
-            "assignment_id": self.assignment_id,
-            "questions": [question.to_dict() for question in self.questions]
-        }
+class CourseInstructors(db.Model):
+    id = db.Column(db.Integer(), primary_key=True)
+    course_id = db.Column('course_id', db.String(36), db.ForeignKey('course.id'))
+    instructor_id = db.Column('instructor_id', db.String(36), db.ForeignKey('user.id'))
 
+class VideoProgress(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    video_id = db.Column(db.String(36), db.ForeignKey('video.id'))
+    student_id = db.Column(db.String(36), db.ForeignKey('user.id'))
+    status = db.Column(db.String(20))  # 'not_started', 'in_progress', 'completed'
+    timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
-# Embedded document for weekly content
-class WeeklyContent(EmbeddedDocument):
-    videos = ListField(EmbeddedDocumentField(Video), required=True)
-    graded_assignments = ListField(EmbeddedDocumentField(Assignment))
-    practice_assignments = ListField(EmbeddedDocumentField(Assignment))
-    
-    def to_dict(self):
-        return {
-            "videos": [video.to_dict() for video in self.videos],
-            "graded_assignments": [assignment.to_dict() for assignment in self.graded_assignments],
-            "practice_assignments": [assignment.to_dict() for assignment in self.practice_assignments]
-        }
-
-
-# Embedded document for instructors
-class Instructor(EmbeddedDocument):
-    instructor_id = StringField(required=True)
-    name = StringField(required=True)
+class AssignmentProgress(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    assignment_id = db.Column(db.String(36), db.ForeignKey('assignment.id'))
+    student_id = db.Column(db.String(36), db.ForeignKey('user.id'))
+    score = db.Column(db.Integer)
+    max_score = db.Column(db.Integer)
+    marked_options = db.Column(JSON)  # Stored as JSON array
 
     def to_dict(self):
         return {
-            "instructor_id": self.instructor_id,
-            "name": self.name
+            'assignment_id': self.assignment_id,
+            'score': self.score,
+            'max_score': self.max_score,
+            'marked_options': self.marked_options
         }
 
-
-# Main document for Course
-class Course(Document):
-    id = UUIDField(primary_key=True, default=uuid.uuid4)
-    title = StringField(required=True, max_length=255)
-    description = StringField(required=True)
-    category = StringField(required=True, max_length=100)
-    instructors = ListField(EmbeddedDocumentField(Instructor), required=True)
-    weeks = DictField(field=EmbeddedDocumentField(WeeklyContent))
-    created_at = DateTimeField(default=datetime.datetime.utcnow)
-    updated_at = DateTimeField(default=datetime.datetime.utcnow)
+class CourseProgress(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    student_id = db.Column(db.String(36), db.ForeignKey('user.id'))
+    course_id = db.Column(db.String(36), db.ForeignKey('course.id'))
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
     def to_dict(self):
         return {
-            "id": str(self.id),
-            "title": self.title,
-            "description": self.description,
-            "category": self.category,
-            "instructors": [instructor.to_dict() for instructor in self.instructors],
-            "weeks": {week: content.to_dict() for week, content in self.weeks.items()},
-             "created_at": str(self.created_at.isoformat()) if self.created_at else None,
-            "updated_at": str(self.updated_at.isoformat()) if self.updated_at else None
-        }
-    
-# Embedded document for video progress
-class VideoProgress(EmbeddedDocument):
-    video_id = StringField(required=True, primary_key=True)
-    status = StringField(choices=["not_started", "in_progress", "completed"], required=True)
-    timestamp = DateTimeField(default=datetime.datetime.utcnow)
-    
-    def to_dict(self):
-        return {
-            "video_id":self.video_id,
-            "status":self.status,
-            "timestamp": str(self.timestamp)
-        }
-
-# Embedded document for assignment progress
-class AssignmentProgress(EmbeddedDocument):
-    assignment_id = StringField(required=True)
-    score = IntField(min_value=0, required=True)
-    max_score = IntField(min_value=0, required=True)
-    marked_options = ListField(IntField())  # Store indices of marked options
-    
-    def to_dict(self):
-        return{
-           "assignment_id": self.assignment_id,
-            "score":self.score,
-            "max_score":self.max_score,
-            "marked_options":self.marked_options
-        }
-
-# Embedded document for weekly progress
-class WeeklyProgress(EmbeddedDocument):
-    videos = ListField(EmbeddedDocumentField(VideoProgress), required=True)
-    graded_assignments = ListField(EmbeddedDocumentField(AssignmentProgress))
-    practice_assignments = ListField(EmbeddedDocumentField(AssignmentProgress))
-    
-    def to_dict(self):
-        return {
-        "videos": [video.to_dict() for video in self.videos],
-        "graded_assignments": [assignment.to_dict() for assignment in self.graded_assignments],
-        "practice_assignments": [assignment.to_dict() for assignment in self.practice_assignments]
-        }
-
-# Embedded document for course progress
-class CourseProgress(EmbeddedDocument):
-    course_id = StringField(required=True)  # Reference to Course ID
-    weekly_progress = DictField(field=EmbeddedDocumentField(WeeklyProgress), required=True)
-    
-    def to_dict(self):
-        data = {
             'course_id': self.course_id,
-            'weekly_progress': {}
-        }
-        for week, progress in self.weekly_progress.items():
-            data['weekly_progress'][week] = progress.to_dict()
-        return data
-
-# Main Student document
-class Student(Document):
-    id = UUIDField(primary_key=True, default=uuid.uuid4)
-    name = StringField(required=True, max_length=255)
-    email = StringField(required=True, unique=True)
-    course_progress = ListField(EmbeddedDocumentField(CourseProgress), default=list)  # Make it optional with default empty list
-    created_at = DateTimeField(default=datetime.datetime.utcnow)
-    updated_at = DateTimeField(default=datetime.datetime.utcnow)
-
-    def to_dict(self):
-        return {
-            "id": str(self.id),
-            "name": self.name,
-            "email": self.email,
-             "course_progress": [cp.to_dict() for cp in self.course_progress],
-             "created_at": str(self.created_at.isoformat()) if self.created_at else None,
-             "updated_at": str(self.updated_at.isoformat()) if self.updated_at else None
+            'student_id': self.student_id,
+            'created_at': str(self.created_at),
+            'updated_at': str(self.updated_at)
         }

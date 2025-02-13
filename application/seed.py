@@ -1,18 +1,16 @@
-from mongoengine import connect
+import uuid
 from application.models import *
 from application.database import db
 from werkzeug.security import generate_password_hash
 import datetime
-import uuid
+import random
+import json
 
 def seed_databases():
     print("Starting database seeding...")
     
     try:
-        # Connect to MongoDB
-        connect('my_database', host='localhost', port=27017)
-        
-        # First create roles in SQLite if they don't exist
+        # Create roles
         roles = {
             'admin': 'Administrator role',
             'instructor': 'Instructor role',
@@ -30,42 +28,20 @@ def seed_databases():
                 role_objects[role_name] = existing_role
         
         db.session.commit()
-        print("Roles created successfully!")
 
-        # Clear any existing session
-        db.session.remove()
-        
-        # Create admin if not exists
-        admin_email = 'admin@example.com'
-        existing_admin = User.query.filter_by(email=admin_email).first()
-        if not existing_admin:
-            admin_id = str(uuid.uuid4())
-            admin = User(
-                id=admin_id,
-                name='Admin User',
-                email=admin_email,
-                password=generate_password_hash('admin123'),
-                active=True,
-                fs_uniquifier=str(uuid.uuid4())
-            )
-            admin.roles.append(role_objects['admin'])
-            db.session.add(admin)
-            db.session.commit()
-            print("Admin user created!")
-
-        # Create instructors
+        # Create instructors before courses
         instructor_data = [
             ('John Doe', 'john@example.com'),
             ('Jane Smith', 'jane@example.com'),
-            ('Bob Wilson', 'bob@example.com')
+            ('Robert Johnson', 'robert@example.com'),
+            ('Sarah Wilson', 'sarah@example.com')
         ]
-        
-        instructor_docs = []
+
+        instructor_objects = []
         for name, email in instructor_data:
             if not User.query.filter_by(email=email).first():
-                instructor_id = str(uuid.uuid4())
                 instructor = User(
-                    id=instructor_id,
+                    id=str(uuid.uuid4()),
                     name=name,
                     email=email,
                     password=generate_password_hash('instructor123'),
@@ -74,22 +50,36 @@ def seed_databases():
                 )
                 instructor.roles.append(role_objects['instructor'])
                 db.session.add(instructor)
-                instructor_docs.append(Instructor(instructor_id=instructor_id, name=name))
+                instructor_objects.append(instructor)
+        
+        db.session.commit()
+
+        # Create admin
+        admin_email = 'admin@example.com'
+        if not User.query.filter_by(email=admin_email).first():
+            admin = User(
+                id=str(uuid.uuid4()),
+                name='Admin User',
+                email=admin_email,
+                password=generate_password_hash('admin123'),
+                active=True,
+                fs_uniquifier=str(uuid.uuid4())
+            )
+            admin.roles.append(role_objects['admin'])
+            db.session.add(admin)
 
         # Create students
-        student_data = [
+        students_data = [
             ('Alice Johnson', 'alice@example.com'),
-            ('Bob Smith', 'bobs@example.com'),
-            ('Carol White', 'carol@example.com'),
-            ('David Brown', 'david@example.com')
+            ('Bob Smith', 'bob@example.com'),
+            ('Carol White', 'carol@example.com')
         ]
-        
-        student_docs = []
-        for name, email in student_data:
+
+        student_objects = []
+        for name, email in students_data:
             if not User.query.filter_by(email=email).first():
-                student_id = str(uuid.uuid4())
                 student = User(
-                    id=student_id,
+                    id=str(uuid.uuid4()),
                     name=name,
                     email=email,
                     password=generate_password_hash('student123'),
@@ -98,78 +88,125 @@ def seed_databases():
                 )
                 student.roles.append(role_objects['student'])
                 db.session.add(student)
+                student_objects.append(student)
 
-                # Create MongoDB student document if not exists
-                if not Student.objects(email=email).first():
-                    student_doc = Student(
-                        id=student_id,
-                        name=name,
-                        email=email,
-                        course_progress=[]
+        # Create courses and related data
+        course_data = [
+            ("Introduction to Python", "Learn Python programming from scratch.", "Programming"),
+            ("Data Structures & Algorithms", "Master fundamental data structures and algorithms.", "Computer Science"),
+            ("Web Development Fundamentals", "Learn modern web development.", "Web Development")
+        ]
+
+        course_objects = []
+        for idx, (title, description, category) in enumerate(course_data):
+            if not Course.query.filter_by(title=title).first():
+                course = Course(
+                    id=str(uuid.uuid4()),
+                    title=title,
+                    description=description,
+                    category=category
+                )
+                # Assign 2 instructors to each course (rotating through the instructor list)
+                course.instructors.extend([
+                    instructor_objects[idx % len(instructor_objects)],
+                    instructor_objects[(idx + 1) % len(instructor_objects)]
+                ])
+                db.session.add(course)
+                course_objects.append(course)
+                
+                # Create weeks for each course
+                for week_num in range(1, 5):  # 4 weeks of content
+                    week = Week(
+                        id=str(uuid.uuid4()),
+                        week_number=week_num,
+                        course_id=course.id
                     )
-                    student_doc.save()
-                    student_docs.append(student_doc)
+                    db.session.add(week)
+                    
+                    # Add videos
+                    for vid_num in range(1, 3):
+                        video = Video(
+                            id=str(uuid.uuid4()),
+                            title=f"{title} - Week {week_num} Video {vid_num}",
+                            url=f"http://example.com/video{vid_num}",
+                            transcript=f"Transcript {week_num}_{vid_num}",
+                            duration=600,
+                            week_id=week.id
+                        )
+                        db.session.add(video)
+                    
+                    # Add assignments
+                    for assignment_type in ['graded', 'practice']:
+                        assignment = Assignment(
+                            id=str(uuid.uuid4()),
+                            type=assignment_type,
+                            week_id=week.id
+                        )
+                        db.session.add(assignment)
+                        
+                        # Add questions with random correct answers
+                        for q_num in range(1, 11):
+                            correct_option = random.randint(0, 3)  # Random correct answer
+                            question = Question(
+                                id=str(uuid.uuid4()),
+                                question=f"{title} - Week {week_num} Question {q_num}",
+                                options=json.dumps([
+                                    f"Option A for Q{q_num}", 
+                                    f"Option B for Q{q_num}", 
+                                    f"Option C for Q{q_num}", 
+                                    f"Option D for Q{q_num}"
+                                ]),
+                                correct_option=correct_option,
+                                assignment_id=assignment.id
+                            )
+                            db.session.add(question)
 
         db.session.commit()
 
-        # Create courses in MongoDB if not exists
-        courses = [
-            ("Introduction to Python", "Learn Python programming from scratch.", "Programming"),
-            ("Data Structures & Algorithms", "Master fundamental data structures and algorithms.", "Computer Science")
-        ]
-        
-        course_docs = []
-        for title, description, category in courses:
-            if not Course.objects(title=title).first():
-                course = Course(
-                    id=uuid.uuid4(),
-                    title=title,
-                    description=description,
-                    category=category,
-                    instructors=instructor_docs[:2],  # Assign first two instructors
-                    weeks={
-                        f"week_{i+1}": WeeklyContent(
-                            videos=[
-                                Video(video_id=str(uuid.uuid4()), title=f"{title} - Week {i+1} Video 1", url="http://example.com/video1", transcript=f"Transcript {i+1}", duration=600),
-                                Video(video_id=str(uuid.uuid4()), title=f"{title} - Week {i+1} Video 2", url="http://example.com/video2", transcript=f"Transcript {i+1}", duration=700)
-                            ],
-                            graded_assignments=[
-                                Assignment(assignment_id=str(uuid.uuid4()), questions=[
-                                    Question(question=f"{title} - Week {i+1} Question {j+1}", options=["Option A", "Option B"], correct_option=0)
-                                    for j in range(10)
-                                ])
-                            ],
-                            practice_assignments=[
-                                Assignment(assignment_id=str(uuid.uuid4()), questions=[
-                                    Question(question=f"{title} - Week {i+1} Practice Question {j+1}", options=["Option A", "Option B"], correct_option=0)
-                                    for j in range(10)
-                                ])
-                            ]
-                        ) for i in range(4)
-                    }
+        # Subscribe students to courses and add week 1 progress
+        for student in student_objects:
+            # Subscribe to first two courses
+            for course in course_objects[:2]:
+                # Create course progress
+                course_progress = CourseProgress(
+                    id=str(uuid.uuid4()),
+                    student_id=student.id,
+                    course_id=course.id
                 )
-                course.save()
-                course_docs.append(course)
+                db.session.add(course_progress)
 
-        # Subscribe students to two courses and add progress for one week
-        for student in student_docs[:2]:
-            progress = []
-            for course in course_docs[:2]:
-                progress.append(CourseProgress(
-                    course_id=str(course.id),
-                    weekly_progress={
-                        "week_1": WeeklyProgress(
-                            videos=[VideoProgress(video_id=video.video_id, status="completed") for video in course.weeks["week_1"].videos],
-                            graded_assignments=[AssignmentProgress(assignment_id=assignment.assignment_id, score=8, max_score=10, marked_options=[0]*10) for assignment in course.weeks["week_1"].graded_assignments],
-                            practice_assignments=[AssignmentProgress(assignment_id=assignment.assignment_id, score=10, max_score=10, marked_options=[2]*10) for assignment in course.weeks["week_1"].practice_assignments]
-                        )
-                    }
-                ))
-            student.course_progress = progress
-            student.save()
+                # Add week 1 progress
+                week = Week.query.filter_by(course_id=course.id, week_number=1).first()
+                
+                # Video progress
+                for video in week.videos:
+                    video_progress = VideoProgress(
+                        id=str(uuid.uuid4()),
+                        video_id=video.id,
+                        student_id=student.id,
+                        status='completed'
+                    )
+                    db.session.add(video_progress)
 
-        print("Database seeding completed!")
+                # Assignment progress with random scores
+                for assignment in week.assignments:
+                    score = random.randint(6, 10)  # Random score between 6 and 10
+                    marked_options = [random.randint(0, 3) for _ in range(10)]  # Random answers
+                    progress = AssignmentProgress(
+                        id=str(uuid.uuid4()),
+                        assignment_id=assignment.id,
+                        student_id=student.id,
+                        score=score,
+                        max_score=10,
+                        marked_options=json.dumps(marked_options)
+                    )
+                    db.session.add(progress)
+
+        db.session.commit()
+        print("Database seeding completed successfully!")
+        
     except Exception as e:
         print(f"Error during seeding: {str(e)}")
         db.session.rollback()
         raise e
+

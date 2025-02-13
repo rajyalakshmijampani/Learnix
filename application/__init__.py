@@ -37,10 +37,14 @@ def create_app():
     api.add_resource(Courses, '/courses')
     api.add_resource(StudentById, '/students/<string:student_id>')
     api.add_resource(CourseById, '/courses/<string:course_id>')
-    # Add Gen AI resources to the API
+    api.add_resource(StudentProgress, '/student-progress/<string:student_id>') 
     api.add_resource(CourseAssistant, '/chat/course')
     api.add_resource(GenerateQuestions, "/generate-mcqs")
-
-
+    
+    # Add Progress tracking endpoints
+    api.add_resource(StudentAssignmentProgress, 
+        '/student-progress/<string:student_id>/course/<string:course_id>/week/<int:week_number>/assignment/<string:assignment_type>')
+    api.add_resource(StudentVideoProgress, 
+        '/student-progress/<string:student_id>/course/<string:course_id>/week/<int:week_number>/videos')
 
     return app
