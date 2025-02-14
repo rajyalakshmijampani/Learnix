@@ -48,8 +48,19 @@ export default {
                                             </a>
                                         </li>
                                         <li class="list-group-item"
-                                            :style="{ height: '65px', display: 'flex', alignItems: 'center', margin: '0' }">
-                                            Mock Questions
+                                            :style="{
+                                                height: '65px', 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                margin: '0',
+                                                backgroundColor: selectedMock === weeknumber ? '#f8f1e4' : 'white', 
+                                                fontWeight: selectedMock === weeknumber ? 'bold' : 'normal',
+                                                cursor: 'pointer'
+                                            }"
+                                            @click="fetchMockQns(weeknumber)">
+                                            <a :style="{ display: 'flex', alignItems: 'center', width: '100%', height: '100%', textDecoration: 'none', color: 'inherit' }">
+                                                Mock Questions
+                                            </a>
                                         </li>
                                     </ul>
                                 </div>
@@ -59,7 +70,7 @@ export default {
                 </div>
             </div>
 
-            <!-- Video Player -->
+            <!-- Video Player or Mock Question Display -->
             <div class="col-10" style="width: 80%; padding: 20px;">
                 <div v-if="selectedLecture" class="video-container" style="text-align: center;">
                     <h4 style="color: #015668; margin-bottom: 20px;">Lecture {{ selectedLectureNumber }}: {{ selectedLectureTitle }}</h4>
@@ -68,6 +79,50 @@ export default {
                         style="width: 80%; height: 500px; border: none;"
                         allowfullscreen>
                     </iframe>
+                </div>
+                <div v-if="selectedMock" style="text-align: left">
+                    <h4 style="color: #015668; margin-bottom: 20px;margin-top: 15px;">Mock Questions - Week {{ selectedMock }}</h4>
+                    <br>
+                    <h6 style="margin-bottom: 20px;"><strong>Questions are generated randomly. You can attempt any number of times. This assignment is for your practice.</strong></h6>
+                    
+                    <div v-if="mcqs.length > 0">
+                        <div v-for="(question, index) in mcqs" :key="index" class="question-block">
+                            <p>{{ index + 1 }}. {{ question.question_statement }}</p>
+        
+                            <div class="options">
+                                <label style="margin-bottom:5px">
+                                    <input type="radio" :name="'question-' + index" :value="'A'" v-model="userAnswers[index]" />
+                                    {{ question.option_a }}
+                                </label><br>
+
+                                <label style="margin-bottom:5px">
+                                    <input type="radio" :name="'question-' + index" :value="'B'" v-model="userAnswers[index]" />
+                                    {{ question.option_b }}
+                                </label><br>
+
+                                <label style="margin-bottom:5px">
+                                    <input type="radio" :name="'question-' + index" :value="'C'" v-model="userAnswers[index]" />
+                                    {{ question.option_c }}
+                                </label><br>
+
+                                <label style="margin-bottom:20px">
+                                    <input type="radio" :name="'question-' + index" :value="'D'" v-model="userAnswers[index]" />
+                                    {{ question.option_d }}
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <button @click="checkAnswers" class="submit-button">Check Answers</button>
+
+                    <div v-if="showResults">
+                        <h3>Results:</h3>
+                        <ul>
+                            <li v-for="(result, index) in results" :key="index">
+                                Question {{ index + 1 }}: {{ result }}
+                            </li>
+                        </ul>
+                    </div>
+
                 </div>
             </div>
 
@@ -89,8 +144,13 @@ export default {
             lectures: [],
             selectedLecture: null, // Stores the selected lecture video link
             selectedLectureTitle: "",  // Store the selected lecture title
-            selectedLectureNumber: null // Track selected lecture
-
+            selectedLectureNumber: null, // Track selected lecture
+            selectedMock: null, // Track selected Mock,
+            mcqsLoading: false,
+            mcqs: [],
+            userAnswers: [],
+            showResults: false,
+            results: []
         }
     },
     created(){
@@ -129,6 +189,13 @@ export default {
         },
 
         playLecture(link, video_title, lecturenumber) {
+            //Clear Mock questions selection
+            this.selectedMock = null 
+            this.userAnswers=[],
+            this.showResults=false,
+            this.results=[]
+            this.mcqs=[]
+
             // Convert youtu.be link to embed format
             if (link.includes("youtu.be/")) {
                 let videoId = link.split("youtu.be/")[1]; // Extract video ID
@@ -140,6 +207,40 @@ export default {
                 this.selectedLectureTitle = video_title;
                 this.selectedLectureNumber = lecturenumber; 
             }
+        },
+
+        async fetchMockQns(week){
+            this.selectedMock=week
+
+            // Clear previous mock selection
+            this.userAnswers=[],
+            this.showResults=false,
+            this.results=[]
+            this.mcqs=[]
+            // Clear lecture selection
+            this.selectedLecture=null 
+            this.selectedLectureTitle= ""
+            this.selectedLectureNumber=null
+
+            this.mcqsLoading = true;
+
+            const res = await fetch(`/mock?week=${week}&num_questions=3`, {
+                headers: {
+                    "Authentication-Token": this.token
+
+                }
+            })
+            if (res.ok) {
+                const data = await res.json()
+                this.mcqs = JSON.parse(data.mcqs); 
+            }
+            this.mcqsLoading = false;
+        },
+        checkAnswers() {
+            this.results = this.mcqs.map((question, index) => {
+                return this.userAnswers[index] === question.correct_answer ? "Correct" : "Incorrect";
+            });
+            this.showResults = true;
         }
     }
 }
