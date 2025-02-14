@@ -68,7 +68,7 @@ export default {
                 this.error = 'Passwords do not match'
         },
         async register() {
-            const res = await fetch('/register', {
+            const res = await fetch('/user', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
