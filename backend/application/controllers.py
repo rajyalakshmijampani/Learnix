@@ -7,7 +7,6 @@ from sqlalchemy import select
 import secrets
 from dotenv import load_dotenv
 import os
-from pathlib import Path
 import google.generativeai as genai
 from langchain.llms.base import LLM
 from typing import Any, List, Optional
@@ -198,18 +197,17 @@ class GetAllLectures(Resource):
 
 #----------------------------------------------MOCK QUESTIONS API-----------------------------#
 
-faiss_folder = Path("FAISS")
-
 # Function to load FAISS index based on user input week
 def load_faiss_for_week(week):
-    faiss_index_path = faiss_folder / f"faiss_index_week{week}.pkl"
-    if Path(faiss_index_path).exists():
+    faiss_folder = os.path.join(base_dir, '..','FAISS')
+    faiss_index_path = os.path.join(faiss_folder, f"faiss_index_week{week}.pkl")
+    try:
         with open(faiss_index_path, "rb") as f:
             return pickle.load(f)
-    else:
-        print(f"No FAISS index found for Week {week}")
+    except Exception as e:
+        print(f"Error loading FAISS index for Week {week} : {e}")
         return None
-    
+
 response_schema = {
     "type": "array",
     "items": {
@@ -225,74 +223,112 @@ response_schema = {
         "required": ["question_statement","option_a","option_b","option_c","option_d","correct_answer"],
     },
 }
-def generate_rag_prompt(query, context, num_questions):
-    prompt=("""
-    You are Lumi, an AI assistant for the IIT Madras Business Analytics course. You have access to course lectures, transcripts, and all related course materials. 
-    Your role is to generate {num_questions} different and random multiple-choice questions (MCQ) based on the given context. 
-    Please generate the MCQs in JSON format. Use the `generate_mcqs` function to return the MCQs in JSON format.
-    The JSON should be a list where each element is a dictionary representing one MCQ. 
-    Each MCQ dictionary must have the following keys:
-    - "question_statement": The question text.
-    - "option_a": Option A
-    - "option_b": Option B
-    - "option_c": Option C
-    - "option_d": Option D
-    - "correct_option": The correct option (A, B, C, or D).
-
-    QUERY: '{query}'
-    CONTEXT: '{context}'
-    """).format(query=query,context=context,num_questions=num_questions)
-    return prompt
-
-class GeminiLLM(LLM):
-
-    def __init__(self, model_name):
-        genai.configure(api_key=gemini_api_key)
-        self.model = genai.GenerativeModel(model_name=model_name)
-        
-    def generate(self, prompt):
-        response = self.model.generate_content(prompt,
-                                               generation_config={"response_mime_type": "application/json",
-                                                                  "response_schema": response_schema,
-                                                                }
-                                                )
-        return response.text
 
 class MockQuestions(Resource):
+    def __init__(self):
+        self.gemini_llm = self._initialize_gemini_llm()
+        self.embedding_function = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        
+    def _initialize_gemini_llm(self):
+        genai.configure(api_key=gemini_api_key)
+        model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+        return model
+    
+    def _generate_rag_prompt(self, query, context,num_questions):
+        return f"""
+        You are Lumi, an AI assistant for the IIT Madras Business Analytics course. You have access to course lectures, transcripts, and all related course materials.
+        Your role is to generate {num_questions} different and random multiple-choice questions (MCQ) based on the given context. 
+        Please generate the MCQs in JSON format.
+        The JSON should be a list where each element is a dictionary representing one MCQ. 
+        Each MCQ dictionary must have the following keys:
+        - "question_statement": The question text.
+        - "option_a": Option A
+        - "option_b": Option B
+        - "option_c": Option C
+        - "option_d": Option D
+        - "correct_option": The correct option (A, B, C, or D).
+
+        QUERY: '{query}'
+        CONTEXT: '{context}'
+        """
+    
+    def _retrieve_context(self, user_input,week):
+        # Retrieve relevant context from FAISS store
+        faiss_vector_store = load_faiss_for_week(week)
+        if not faiss_vector_store:
+            return "No data available for this week."
+        
+        relevant_docs = faiss_vector_store.similarity_search(user_input, k=3)
+        return "\n".join([doc.page_content for doc in relevant_docs])
+
+    def _warm_up_model(self):
+        # Optional warm-up for the model
+        warm_up_prompt = self._generate_rag_prompt(query="Hello, how are you?")
+        _ = self.gemini_llm.generate_content(warm_up_prompt)
+        
+    def generate(self, user_input,week, num_questions):
+        # Main method to generate questions
+        context = self._retrieve_context(user_input, week)
+        if context == "No data available for this week.":
+            return context
+        
+        prompt = self._generate_rag_prompt(query=user_input, context=context, num_questions=num_questions)
+        return self.gemini_llm.generate_content(prompt,
+                                                generation_config={"response_mime_type": "application/json",
+                                                                  "response_schema": response_schema,
+                                                }).text
+
     def get(self):
+
+        # Flask API route to handle GET requests
         try:
-            data = request.get_json()
-            week = data.get("week")
-            num_questions = data.get("num_questions")
+            week = request.args.get('week', default=1, type=int)
+            num_questions = request.args.get('num_questions', default=3, type=int)
+
             user_query = f"Generate practice questions for week {week}"
-
-            # Load FAISS for the requested week
-            faiss_vector_store = load_faiss_for_week(week)
-            if not faiss_vector_store:
-                return jsonify({"error": f"No FAISS data available for week {week}"}), 400
-
-            # Retrieve relevant context
-            relevant_docs = faiss_vector_store.similarity_search(user_query, k=3)
-            context = "\n".join([doc.page_content for doc in relevant_docs])
-
-            # Initialize Gemini
-            gemini_llm = GeminiLLM(model_name="gemini-1.5-flash")
-
-            # Generate and invoke prompt
-            prompt = generate_rag_prompt(user_query, context, num_questions)
-            response = gemini_llm.generate(prompt)
-
-            return jsonify({
-                "status": "success",
-                "week": week,
-                "num_questions": num_questions,
-                "mcqs": response
-            })
-
+            response = self.generate(user_query,week, num_questions)
+            
+            return make_response(jsonify({"mcqs": response, "code": 200}), 200)
+        
         except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            return make_response(jsonify({"error": str(e), "code": 500}), 500)
         
 #----------------------------------------------CHAT SUPPORT API-----------------------------#
+
+class ChatSupport(Resource):
+    def __init__(self):
+        # Configure Gemini model
+        genai.configure(api_key=gemini_api_key)
+        self.gemini_llm = genai.GenerativeModel(model_name="gemini-1.5-flash")
+    
+    def post(self):
+        try:
+            # Get request data
+            data = request.get_json()
+            message = data.get("message")
+            chat_history = data.get("chat_history", [])
+
+            if not message:
+                return make_response(jsonify({"error": "Message is required", "code": 400}), 400)
+
+            # Prepare the chat history for the model
+            history = "\n".join([f"{item['role']}: {item['content']}" for item in chat_history])
+            prompt = f"""
+            You are an intelligent and helpful assistant. Continue the conversation based on the following chat history.
+            Your answers should be concise and to the point, no more than five sentences unless needed.
+            {history}
+            User: {message}
+            Assistant:
+            """
+
+            # Get response from Gemini model
+            response = self.gemini_llm.generate_content(prompt)
+            reply = response.text.strip()
+
+            return make_response(jsonify({"response": reply, "code": 200}), 200)
+        
+        except Exception as e:
+            return make_response(jsonify({"error": str(e), "code": 500}), 500)
 
 
 #-----------------------------------------------LOGOUT API----------------#
@@ -310,4 +346,6 @@ api.add_resource(User, "/user","/user/<string:mode>")
 api.add_resource(Login, "/login")
 api.add_resource(UserCurrentCourses, "/user/<int:user_id>/currentcourses")
 api.add_resource(GetAllLectures,"/get_all_lectures/<int:id>")
+api.add_resource(MockQuestions,'/mock')
+api.add_resource(ChatSupport,"/chat")
 api.add_resource(Logout, "/logout")
