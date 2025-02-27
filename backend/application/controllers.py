@@ -65,7 +65,7 @@ class User(Resource):
             return make_response(jsonify({'message': 'User registered successfully', 'code': 201}),201)
 
         except Exception as e:
-            return make_response(jsonify({'error': e , 'code': 500}),500)
+            return make_response(jsonify({'error': str(e) , 'code': 500}),500)
     
     # Profile Update
     def put(self,mode):
@@ -205,7 +205,7 @@ def load_faiss_for_week(week):
         with open(faiss_index_path, "rb") as f:
             return pickle.load(f)
     except Exception as e:
-        print(f"Error loading FAISS index for Week {week} : {e}")
+        print(f"Error loading FAISS index for Week {week} : {str(e)}")
         return None
 
 response_schema = {
