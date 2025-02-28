@@ -96,7 +96,18 @@ def test_login_success(client:FlaskClient):
     Test Case: Successful login with valid credentials
     API endpoint: /login
     Method: POST
-    Expected Output: User details with token
+    Expected Output: {
+        "email": "test@gmail.com",
+        "name": "test",
+        "token": "<random_token>",
+        "code": 200
+    }
+    Actual Output: {
+        "email": "test@gmail.com",
+        "name": "test",
+        "token": "<random_token>",
+        "code": 200
+    }
     Result: PASS
     """
 
@@ -113,6 +124,7 @@ def test_login_invalid_credentials(client:FlaskClient):
     API endpoint: /login
     Method: POST
     Expected Output: {'error': 'Invalid Credentials', 'code': 400}
+    Actual Output: {'error': 'Invalid Credentials', 'code': 400}
     Result: PASS
     """
 
@@ -120,11 +132,27 @@ def test_login_without_data(client:FlaskClient):
     response = client.post('/login', json={})
     assert response.status_code == 400
     assert response.json == {'error': 'Request body required', 'code': 400}
+    """
+    Test Case: Login attempt without request body
+    API endpoint: /login
+    Method: POST
+    Expected Output: {'error': 'Request body required', 'code': 400}
+    Actual Output: {'error': 'Request body required', 'code': 400}
+    Result: PASS
+    """
 
 def test_login_missing_credentials(client:FlaskClient):
     response = client.post('/login', json={"email": "test@gmail.com"})
     assert response.status_code == 400
     assert response.json == {'error': 'Email and Password are required', 'code': 400}
+    """
+    Test Case: Login attempt with missing password
+    API endpoint: /login
+    Method: POST
+    Expected Output: {'error': 'Email and Password are required', 'code': 400}
+    Actual Output: {'error': 'Email and Password are required', 'code': 400}
+    Result: PASS
+    """
 
 #Profile Update API
 def test_update_profile_success(client:FlaskClient):
@@ -145,6 +173,14 @@ def test_update_profile_success(client:FlaskClient):
     print(response.json)
     assert response.status_code == 200
     assert response.json == {"message": "User profile updated successfully", 'code': 200}
+    """
+    Test Case: Successfully update user profile
+    API endpoint: /user/profile
+    Method: PUT
+    Expected Output: {"message": "User profile updated successfully", 'code': 200}
+    Actual Output: {"message": "User profile updated successfully", 'code': 200}
+    Result: PASS
+    """
 
 def test_update_profile_no_user(client:FlaskClient):
     update_data = {
@@ -154,6 +190,14 @@ def test_update_profile_no_user(client:FlaskClient):
     response = client.put('/user/profile', json=update_data)
     assert response.status_code == 404
     assert response.json == {"error": "User not found", 'code': 404}
+    """
+    Test Case: Update profile for non-existent user
+    API endpoint: /user/profile
+    Method: PUT
+    Expected Output: {"error": "User not found", 'code': 404}
+    Actual Output: {"error": "User not found", 'code': 404}
+    Result: PASS
+    """
 
 def test_change_password_success(client:FlaskClient):
     # First register a user
@@ -173,6 +217,14 @@ def test_change_password_success(client:FlaskClient):
     print(response.json)
     assert response.status_code == 200
     assert response.json == {"message": "Password changed successfully", 'code': 200}
+    """
+    Test Case: Successfully change user password
+    API endpoint: /user/password
+    Method: PUT
+    Expected Output: {"message": "Password changed successfully", 'code': 200}
+    Actual Output: {"message": "Password changed successfully", 'code': 200}
+    Result: PASS
+    """
 
 def test_change_password_wrong_old_password(client:FlaskClient):
     # First register a user
@@ -193,6 +245,14 @@ def test_change_password_wrong_old_password(client:FlaskClient):
     print(response.json)
     assert response.status_code == 400
     assert response.json == {"error": "Incorrect old password", 'code': 400}
+    """
+    Test Case: Change password with incorrect old password
+    API endpoint: /user/password
+    Method: PUT
+    Expected Output: {"error": "Incorrect old password", 'code': 400}
+    Actual Output: {"error": "Incorrect old password", 'code': 400}
+    Result: PASS
+    """
 
 #Current Courses API
 def test_get_user_courses(client:FlaskClient):
@@ -214,7 +274,11 @@ def test_get_user_courses(client:FlaskClient):
     Test Case: Get user's current courses
     API endpoint: /user/<user_id>/currentcourses
     Method: GET
-    Expected Output: List of courses
+    Expected Output: [
+        {"id": 1, "name": "Course 1"},
+        {"id": 2, "name": "Course 2"}
+    ]
+    Actual Output: List of courses with id and name fields
     Result: PASS
     """
 
@@ -236,7 +300,15 @@ def test_get_course_lectures(client:FlaskClient):
     Test Case: Get course lectures
     API endpoint: /get_all_lectures/<course_id>
     Method: GET
-    Expected Output: List of lectures
+    Expected Output: [
+        {
+            "lecturenumber": 1,
+            "title": "Lecture 1",
+            "link": "lecture_link",
+            "weeknumber": 1
+        }
+    ]
+    Actual Output: List of lectures with required fields
     Result: PASS
     """
 
@@ -280,6 +352,7 @@ def test_logout(client:FlaskClient):
     API endpoint: /logout
     Method: POST
     Expected Output: {"message": "Successfully logged out", "code": 200}
+    Actual Output: {"message": "Successfully logged out", "code": 200}
     Result: PASS
     """
 
