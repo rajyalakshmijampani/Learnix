@@ -13,7 +13,9 @@ export default {
                     </span>
                 </div>
                 <div>
-                    <a style="display: inline-block; margin-right:30px">Ask Lumi</a>
+                    <!-- Emit the event for Ask Lumi -->
+                        <a style="display: inline-block; margin-right:30px; cursor:pointer"
+                           @click="$emit('toggle-chatbot')">Ask Lumi</a>
                     <li class="nav-item dropdown" style="list-style-type: none; display: inline-block">
                         <a class="nav-link dropdown-toggle" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false">
                             Welcome, {{ name }}

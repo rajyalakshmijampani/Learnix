@@ -314,8 +314,9 @@ class ChatSupport(Resource):
             # Prepare the chat history for the model
             history = "\n".join([f"{item['role']}: {item['content']}" for item in chat_history])
             prompt = f"""
-            You are an intelligent and helpful assistant. Continue the conversation based on the following chat history.
-            Your answers should be concise and to the point, no more than five sentences unless needed.
+            You are an intelligent and ethical academic assistant. Your role is to help users understand concepts while maintaining academic integrity.
+            Do not provide direct answers to assignments, quizzes, or exams. Instead, guide users to resources, explain concepts, and encourage critical thinking.  
+            Your responses should be concise and to the point, no more than five sentences unless needed.
             {history}
             User: {message}
             Assistant:
