@@ -74,36 +74,28 @@ def test_register_missing_field(client:FlaskClient):
 
 #Login API
 def test_login_success(client:FlaskClient):
-    # First register a user
-    register_data = {
-        "email": "test@gmail.com",
-        "password": "password",
-        "name": "test"
-    }
-    client.post('/user', json=register_data)
-    
     login_data = {
-        "email": "test@gmail.com",
+        "email": "test123@gmail.com",
         "password": "password"
     }
     response = client.post('/login', json=login_data)
     print(response.json)
     assert response.status_code == 200
     assert "token" in response.json
-    assert response.json["email"] == "test@gmail.com"
+    assert response.json["email"] == "test123@gmail.com"
     assert response.json["name"] == "test"
     """
     Test Case: Successful login with valid credentials
     API endpoint: /login
     Method: POST
     Expected Output: {
-        "email": "test@gmail.com",
+        "email": "test123@gmail.com",
         "name": "test",
         "token": "<random_token>",
         "code": 200
     }
     Actual Output: {
-        "email": "test@gmail.com",
+        "email": "test123@gmail.com",
         "name": "test",
         "token": "<random_token>",
         "code": 200
@@ -155,15 +147,7 @@ def test_login_missing_credentials(client:FlaskClient):
     """
 
 #Profile Update API
-def test_update_profile_success(client:FlaskClient):
-    # First register a user
-    register_data = {
-        "email": "test@gmail.com",
-        "password": "password",
-        "name": "test"
-    }
-    client.post('/user', json=register_data)
-    
+def test_update_profile_success(client:FlaskClient):    
     update_data = {
         "userId": 1,
         "name": "updated name",
@@ -200,18 +184,10 @@ def test_update_profile_no_user(client:FlaskClient):
     """
 
 def test_change_password_success(client:FlaskClient):
-    # First register a user
-    register_data = {
-        "email": "test@gmail.com",
-        "password": "password",
-        "name": "test"
-    }
-    client.post('/user', json=register_data)
-    
     password_data = {
         "userId": 1,
         "oldPassword": "password",
-        "newPassword": "newpassword"
+        "newPassword": "password2"
     }
     response = client.put('/user/password', json=password_data)
     print(response.json)
@@ -227,13 +203,6 @@ def test_change_password_success(client:FlaskClient):
     """
 
 def test_change_password_wrong_old_password(client:FlaskClient):
-    # First register a user
-    register_data = {
-        "email": "test@gmail.com",
-        "password": "password",
-        "name": "test"
-    }
-    client.post('/user', json=register_data)
     
     password_data = {
         "userId": 1,
@@ -256,13 +225,6 @@ def test_change_password_wrong_old_password(client:FlaskClient):
 
 #Current Courses API
 def test_get_user_courses(client:FlaskClient):
-    # First register a user
-    register_data = {
-        "email": "courses@gmail.com",
-        "password": "password",
-        "name": "test"
-    }
-    client.post('/user', json=register_data)
     
     response = client.get('/user/1/currentcourses')
     assert response.status_code == 200
@@ -313,7 +275,7 @@ def test_get_course_lectures(client:FlaskClient):
     """
 
 #Mock Questions API
-def get_mock_questions(client:FlaskClient):
+def test_get_mock_questions(client:FlaskClient):
     response = client.get('/mock?week=1&num_questions=3')
     assert response.status_code == 200
     assert "mcqs" in response.json
@@ -326,7 +288,7 @@ def get_mock_questions(client:FlaskClient):
     """
 
 #Chat Support API
-def chat_support(client:FlaskClient):
+def test_chat_support(client:FlaskClient):
     data = {
         "message": "What is Business Analytics?",
         "chat_history": []
@@ -356,7 +318,7 @@ def test_logout(client:FlaskClient):
     Result: PASS
     """
 
-def chat_support_empty_message(client:FlaskClient):
+def test_chat_support_empty_message(client:FlaskClient):
     data = {
         "message": "",
         "chat_history": []
@@ -372,7 +334,7 @@ def chat_support_empty_message(client:FlaskClient):
     Result: PASS
     """
 
-def invalid_week_mock_questions(client:FlaskClient):
+def test_invalid_week_mock_questions(client:FlaskClient):
     response = client.get('/mock?week=999&num_questions=3')
     assert response.status_code == 200
     assert "No data available for this week." in str(response.json)
