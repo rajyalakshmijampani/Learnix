@@ -1,5 +1,5 @@
 from application.models import User, Course, Lecture, Registration
-from application import db, api
+from application import db, api, faiss_cache 
 from flask import jsonify, request, jsonify, render_template, make_response
 from flask_restful import Resource,fields, marshal
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -13,6 +13,8 @@ from typing import Any, List, Optional
 from pydantic import Field
 from langchain_huggingface import HuggingFaceEmbeddings
 import pickle
+import faiss
+import json
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(base_dir, '.env'))
@@ -23,6 +25,7 @@ from application import create_datastore
 
 # Initialize datastore where needed
 datastore = create_datastore()
+
 
 #---------------------------------- HOME API -------------------------------#
 
@@ -197,17 +200,6 @@ class GetAllLectures(Resource):
 
 #----------------------------------------------MOCK QUESTIONS API-----------------------------#
 
-# Function to load FAISS index based on user input week
-def load_faiss_for_week(week):
-    faiss_folder = os.path.join(base_dir, '..','FAISS')
-    faiss_index_path = os.path.join(faiss_folder, f"faiss_index_week{week}.pkl")
-    try:
-        with open(faiss_index_path, "rb") as f:
-            return pickle.load(f)
-    except Exception as e:
-        print(f"Error loading FAISS index for Week {week} : {str(e)}")
-        return None
-
 response_schema = {
     "type": "array",
     "items": {
@@ -226,57 +218,46 @@ response_schema = {
 
 class MockQuestions(Resource):
     def __init__(self):
-        self.gemini_llm = self._initialize_gemini_llm()
+        genai.configure(api_key=gemini_api_key)
+        self.gemini_llm = genai.GenerativeModel(model_name="gemini-1.5-flash")
         self.embedding_function = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         
-    def _initialize_gemini_llm(self):
-        genai.configure(api_key=gemini_api_key)
-        model = genai.GenerativeModel(model_name="gemini-1.5-flash")
-        return model
-    
-    def _generate_rag_prompt(self, query, context,num_questions):
+    def _generate_rag_prompt(self, context,num_questions):
         return f"""
-        You are Lumi, an AI assistant for the IIT Madras Business Analytics course. You have access to course lectures, transcripts, and all related course materials.
-        Your role is to generate {num_questions} different and random multiple-choice questions (MCQ) based on the given context. 
-        Please generate the MCQs in JSON format.
-        The JSON should be a list where each element is a dictionary representing one MCQ. 
-        Each MCQ dictionary must have the following keys:
+        You are Lumi, an AI assistant for the IIT Madras Business Analytics course.
+        Your task is to generate {num_questions} different and random multiple-choice questions (MCQ) from the given context.
+        
+        Format output as a JSON list, where each MCQ has:
         - "question_statement": The question text.
-        - "option_a": Option A
-        - "option_b": Option B
-        - "option_c": Option C
-        - "option_d": Option D
-        - "correct_option": The correct option (A, B, C, or D).
+        - "option_a", "option_b", "option_c", "option_d": The answer choices.
+        - "correct_option": The correct answer ("A", "B", "C", or "D").
 
-        QUERY: '{query}'
         CONTEXT: '{context}'
         """
     
-    def _retrieve_context(self, user_input,week):
+    def _retrieve_context(self,week):
         # Retrieve relevant context from FAISS store
-        faiss_vector_store = load_faiss_for_week(week)
+        faiss_vector_store = faiss_cache.get(week)
         if not faiss_vector_store:
             return "No data available for this week."
         
-        relevant_docs = faiss_vector_store.similarity_search(user_input, k=3)
-        return "\n".join([doc.page_content for doc in relevant_docs])
-
-    def _warm_up_model(self):
-        # Optional warm-up for the model
-        warm_up_prompt = self._generate_rag_prompt(query="Hello, how are you?")
-        _ = self.gemini_llm.generate_content(warm_up_prompt)
+        return "\n".join(doc.page_content for doc in faiss_vector_store.docstore._dict.values())
         
-    def generate(self, user_input,week, num_questions):
+    def generate(self, week, num_questions):
         # Main method to generate questions
-        context = self._retrieve_context(user_input, week)
+        context = self._retrieve_context(week)
         if context == "No data available for this week.":
             return context
         
-        prompt = self._generate_rag_prompt(query=user_input, context=context, num_questions=num_questions)
-        return self.gemini_llm.generate_content(prompt,
-                                                generation_config={"response_mime_type": "application/json",
-                                                                  "response_schema": response_schema,
-                                                }).text
+        prompt = self._generate_rag_prompt(context=context, num_questions=num_questions)
+        try:
+            response = self.gemini_llm.generate_content(
+                prompt,
+                generation_config={"response_mime_type": "application/json", "response_schema": response_schema}
+            )
+            return json.loads(response.text)  # Ensure proper JSON output
+        except Exception as e:
+            return {"error": str(e)}
 
     def get(self):
 
@@ -285,8 +266,7 @@ class MockQuestions(Resource):
             week = request.args.get('week', default=1, type=int)
             num_questions = request.args.get('num_questions', default=3, type=int)
 
-            user_query = f"Generate practice questions for week {week}"
-            response = self.generate(user_query,week, num_questions)
+            response = self.generate(week, num_questions)
             
             return make_response(jsonify({"mcqs": response, "code": 200}), 200)
         
@@ -314,7 +294,7 @@ class ChatSupport(Resource):
             # Prepare the chat history for the model
             history = "\n".join([f"{item['role']}: {item['content']}" for item in chat_history])
             prompt = f"""
-            You are an intelligent and ethical academic assistant. Your role is to help users understand concepts while maintaining academic integrity.
+            You are an intelligent and ethical academic assistant. Your role is to help students understand concepts while maintaining academic integrity.
             Do not provide direct answers to assignments, quizzes, or exams. Instead, guide users to resources, explain concepts, and encourage critical thinking.  
             Your responses should be concise and to the point, no more than five sentences unless needed.
             {history}

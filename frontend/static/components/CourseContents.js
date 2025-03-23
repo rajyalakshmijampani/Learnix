@@ -6,9 +6,9 @@ export default {
         <div class="row" style="width:100%">
             <div class="col-2" style="width: 20%; padding-right: 0px;">
                 <div style="margin-left:5%"> 
-                    <h4 style="color: #015668;margin-top: 30px;margin-bottom: 30px;text-align:center">Course Contents</h4>
-                    <div class="accordion" id="accordion">
-                        <div class="accordion-item" v-for="weeknumber in weeks" :key="weeknumber">
+                <h4 style="color: #015668;margin-top: 30px;margin-bottom: 30px;text-align:center">Course Contents</h4>
+                <div class="accordion" id="accordion">
+                    <div class="accordion-item" v-for="weeknumber in weeks" :key="weeknumber">
                             <h2 class="accordion-header" :id="'heading' + weeknumber">
                                 <button class="accordion-button" type="button" 
                                         :data-bs-toggle="'collapse'"
@@ -64,8 +64,8 @@ export default {
                                 </div>
                             </div>
                         </div>
-                    </div>
                 </div>
+            </div>
             </div>
 
             <!-- Main Content Area -->
@@ -402,7 +402,7 @@ export default {
             
             if (res.ok) {
                 const data = await res.json();
-                this.mcqs = JSON.parse(data.mcqs);
+                this.mcqs = data.mcqs;
             }
             
             // Hide loading indicator

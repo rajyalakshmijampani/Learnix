@@ -4,12 +4,30 @@ from flask_restful import Api
 from application.config import Config
 from flask_security import SQLAlchemyUserDatastore
 import os
+import pickle
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
 template_folder = os.path.join(base_dir, '..','..','frontend', 'templates')
 static_folder = os.path.join(base_dir,'..','..','frontend', 'static')
 
 
+faiss_cache = {}
+
+def load_faiss_for_week(week):
+    if week in faiss_cache:
+        return faiss_cache[week]
+    
+    faiss_folder = os.path.join(base_dir,'..', 'FAISS')
+    faiss_index_path = os.path.join(faiss_folder, f"faiss_index_week{week}.pkl")
+
+    if not os.path.exists(faiss_index_path):
+        print(f"FAISS index for Week {week} not found.")
+        return None
+
+    with open(faiss_index_path, "rb") as f:
+        faiss_cache[week] = pickle.load(f)
+        
+    return faiss_cache[week]    
 
 app = Flask(__name__,template_folder=template_folder,static_folder=static_folder)
 app.config.from_object(Config)
@@ -69,6 +87,11 @@ with app.app_context():
                         db.session.add(new_lecture)
 
     db.session.commit()
+
+    weeks = {lecture.weekNumber for lecture in Lecture.query.distinct(Lecture.weekNumber).all()}
+    faiss_store = {week: load_faiss_for_week(week) for week in weeks}
+
+
 
 # Import the controllers after app context is set up
 from . import controllers
