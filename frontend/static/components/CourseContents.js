@@ -269,6 +269,7 @@ export default {
             error: null,
             weeks: [],
             activeWeek: 1, // Tracks which week content is open by default
+            openingWeek: null,
             lectures: [],
             selectedLecture: null, // Stores the selected lecture video link
             selectedLectureTitle: "",  // Store the selected lecture title
@@ -292,6 +293,20 @@ export default {
         this.fetchLectures()
         // Add CSS for loading animation
         this.addLoadingAnimations()
+    },
+    mounted() {
+        // Wait for lectures to be fetched before selecting default
+        this.fetchLectures().then(() => {
+            if (this.lectures.length > 0) {
+                let firstWeek = Math.min(...this.weeks); // Get the first available week
+                this.openingWeek = firstWeek; // Open first week
+                
+                let firstLecture = this.sortedLectures(firstWeek)[0]; // Get first lecture
+                if (firstLecture) {
+                    this.playLecture(firstLecture.link, firstLecture.title, firstLecture.lecturenumber);
+                }
+            }
+        });
     },
     methods: {
         addLoadingAnimations() {
