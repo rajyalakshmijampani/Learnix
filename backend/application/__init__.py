@@ -71,7 +71,11 @@ with app.app_context():
                     {'course_id': new_course.id, 'lectureNumber': '2.1', 'title': 'Probability Distributions', 'link': 'https://youtu.be/yMFsKaMRqdw', 'weekNumber': 2},
                     {'course_id': new_course.id, 'lectureNumber': '2.2', 'title': 'Business Example', 'link': 'https://youtu.be/ePqGFuLnVFM', 'weekNumber': 2},
                     {'course_id': new_course.id, 'lectureNumber': '2.3', 'title': 'Guessing the Distribution', 'link': 'https://youtu.be/UM-3E8fsCgA', 'weekNumber': 2},
-                    {'course_id': new_course.id, 'lectureNumber': '3.1', 'title': 'Determining Association Between Categorical Variables', 'link': 'https://youtu.be/wWFK-N7RTKU', 'weekNumber': 3}
+                    {'course_id': new_course.id, 'lectureNumber': '3.1', 'title': 'Determining Association Between Categorical Variables', 'link': 'https://youtu.be/wWFK-N7RTKU', 'weekNumber': 3},
+                    {'course_id': new_course.id, 'lectureNumber': '3.2', 'title': 'Bayes\' Rule', 'link': 'https://youtu.be/O1-fspYUq6g', 'weekNumber': 3},
+                    {'course_id': new_course.id, 'lectureNumber': '3.3', 'title': 'Chi-Squared Test of Independence', 'link': 'https://youtu.be/obVldwZBm0c', 'weekNumber': 3},
+                    {'course_id': new_course.id, 'lectureNumber': '3.4', 'title': 'Implementation in Python', 'link': 'https://youtu.be/8eeRkqA1YO4', 'weekNumber': 3},
+                    {'course_id': new_course.id, 'lectureNumber': '3.5', 'title': 'Implementation in Spreadsheets', 'link': 'https://youtu.be/IFLk64kNdSE', 'weekNumber': 3}
                 ]
 
                 for lecture_data in default_lectures:
